@@ -1,0 +1,6 @@
+@echo off
+REM Launch SpireComm HTTP Server with debugpy (attach on port 5678)
+cd /d "%~dp0"
+echo Starting HTTP server with debugpy on port 5678...
+echo Waiting for debugger to attach...
+python -m debugpy --listen 5678 --wait-for-client -m spirecomm.http_server %*

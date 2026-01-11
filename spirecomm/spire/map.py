@@ -10,6 +10,15 @@ class Node:
     def from_json(cls, json_object):
         return cls(json_object.get("x"), json_object.get("y"), json_object.get("symbol"))
 
+    def to_json(self):
+        """Serialize Node to JSON-compatible dict"""
+        return {
+            'x': self.x,
+            'y': self.y,
+            'symbol': self.symbol,
+            'children': [{'x': child.x, 'y': child.y} for child in self.children]
+        }
+
     def __repr__(self):
         return "({},{})".format(self.x, self.y)
 
@@ -50,3 +59,12 @@ class Map:
                     parent_node.children.append(child_node)
 
         return dungeon_map
+
+    def to_json(self):
+        """Serialize Map to JSON-compatible list"""
+        # Flatten nodes dict into list
+        node_list = []
+        for y_row in self.nodes.values():
+            for node in y_row.values():
+                node_list.append(node.to_json())
+        return node_list

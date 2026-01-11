@@ -50,5 +50,22 @@ class Card:
             exhausts=json_object.get("exhausts", False)
         )
 
+    def to_json(self):
+        """Serialize Card to JSON-compatible dict"""
+        return {
+            'id': self.card_id,
+            'name': self.name,
+            'type': self.type.name,
+            'rarity': self.rarity.name,
+            'upgrades': self.upgrades,
+            'has_target': self.has_target,
+            'cost': self.cost,
+            'uuid': self.uuid,
+            'misc': self.misc,
+            'price': self.price,
+            'is_playable': self.is_playable,
+            'exhausts': self.exhausts
+        }
+
     def __eq__(self, other):
         return self.uuid == other.uuid

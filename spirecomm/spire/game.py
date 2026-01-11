@@ -127,6 +127,55 @@ class Game:
 
         return game
 
+    def to_json(self):
+        """Serialize Game to JSON-compatible dict (minimal for combat testing)"""
+        result = {
+            'current_action': self.current_action,
+            'current_hp': self.current_hp,
+            'max_hp': self.max_hp,
+            'floor': self.floor,
+            'act': self.act,
+            'gold': self.gold,
+            'seed': self.seed,
+            'character': self.character.name if self.character else None,
+            'ascension_level': self.ascension_level,
+            'act_boss': self.act_boss if hasattr(self, 'act_boss') else None,
+            'relics': [relic.to_json() for relic in self.relics],
+            'deck': [card.to_json() for card in self.deck],
+            'potions': [potion.to_json() for potion in self.potions],
+            'map': self.map.to_json() if self.map else [],
+            'screen_type': self.screen_type.name if self.screen_type else None,
+            'room_phase': self.room_phase.name if self.room_phase else None,
+            'room_type': self.room_type,
+            'is_screen_up': self.screen_up,
+            'choice_available': self.choice_available,
+        }
+
+        # Add combat state if in combat
+        if self.in_combat and self.player:
+            result['combat_state'] = {
+                'player': self.player.to_json(),
+                'monsters': [monster.to_json() for monster in self.monsters],
+                'draw_pile': [card.to_json() for card in self.draw_pile],
+                'discard_pile': [card.to_json() for card in self.discard_pile],
+                'exhaust_pile': [card.to_json() for card in self.exhaust_pile],
+                'hand': [card.to_json() for card in self.hand],
+                'limbo': [card.to_json() for card in self.limbo],
+                'card_in_play': self.card_in_play.to_json() if self.card_in_play else None,
+                'turn': self.turn,
+                'cards_discarded_this_turn': self.cards_discarded_this_turn
+            }
+
+        # Add screen state (minimal for now)
+        if self.screen:
+            result['screen_state'] = {}  # TODO: Implement screen serialization
+
+        # Add choice list if available
+        if self.choice_available:
+            result['choice_list'] = self.choice_list
+
+        return result
+
     def are_potions_full(self):
         for potion in self.potions:
             if potion.potion_id == "Potion Slot":

@@ -21,3 +21,14 @@ class Potion:
             requires_target=json_object.get("requires_target", False),
             price=json_object.get("price", 0)
         )
+
+    def to_json(self):
+        """Serialize Potion to JSON-compatible dict"""
+        return {
+            'id': self.potion_id,
+            'name': self.name,
+            'can_use': self.can_use,
+            'can_discard': self.can_discard,
+            'requires_target': self.requires_target,
+            'price': self.price
+        }

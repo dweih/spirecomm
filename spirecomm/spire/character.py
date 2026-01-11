@@ -49,6 +49,15 @@ class Orb:
         orb = Orb(name, orb_id, evoke_amount, passive_amount)
         return orb
 
+    def to_json(self):
+        """Serialize Orb to JSON-compatible dict"""
+        return {
+            'name': self.name,
+            'id': self.orb_id,
+            'evoke_amount': self.evoke_amount,
+            'passive_amount': self.passive_amount
+        }
+
 
 class Character:
 
@@ -74,6 +83,17 @@ class Player(Character):
         player.powers = [Power.from_json(json_power) for json_power in json_object["powers"]]
         player.orbs = [Orb.from_json(orb) for orb in json_object["orbs"]]
         return player
+
+    def to_json(self):
+        """Serialize Player to JSON-compatible dict"""
+        return {
+            'max_hp': self.max_hp,
+            'current_hp': self.current_hp,
+            'block': self.block,
+            'energy': self.energy,
+            'powers': [power.to_json() for power in self.powers],
+            'orbs': [orb.to_json() for orb in self.orbs]
+        }
 
 
 class Monster(Character):
@@ -112,6 +132,27 @@ class Monster(Character):
         monster = cls(name, monster_id, max_hp, current_hp, block, intent, half_dead, is_gone, move_id, last_move_id, second_last_move_id, move_base_damage, move_adjusted_damage, move_hits)
         monster.powers = [Power.from_json(json_power) for json_power in json_object["powers"]]
         return monster
+
+    def to_json(self):
+        """Serialize Monster to JSON-compatible dict"""
+        return {
+            'name': self.name,
+            'id': self.monster_id,
+            'max_hp': self.max_hp,
+            'current_hp': self.current_hp,
+            'block': self.block,
+            'intent': self.intent.name,
+            'half_dead': self.half_dead,
+            'is_gone': self.is_gone,
+            'move_id': self.move_id,
+            'last_move_id': self.last_move_id,
+            'second_last_move_id': self.second_last_move_id,
+            'move_base_damage': self.move_base_damage,
+            'move_adjusted_damage': self.move_adjusted_damage,
+            'move_hits': self.move_hits,
+            'monster_index': self.monster_index,
+            'powers': [power.to_json() for power in self.powers]
+        }
 
     def __eq__(self, other):
         if self.name == other.name and self.current_hp == other.current_hp and self.max_hp == other.max_hp and self.block == other.block:

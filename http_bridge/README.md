@@ -311,6 +311,7 @@ The bridge automatically detects `{"ready": true}` from Communication Mod and re
 1. Check Communication Mod config points to bridge.py
 2. Start a new run in game
 3. Check bridge logs with `--debug`
+4. For file logging: `python bridge.py --debug > bridge.log 2>&1`
 
 ### Actions not working
 

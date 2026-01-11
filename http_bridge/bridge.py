@@ -12,7 +12,7 @@ import threading
 import time
 import os
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse
 import argparse
 from socketserver import ThreadingMixIn
 
@@ -119,7 +119,7 @@ def stdin_reader_thread(state):
                 # Record to fixture file if enabled
                 state.record_state(line.strip())
             else:
-                state.log(f"Received message but no in_game/error field, storing anyway")
+                state.log("Received message but no in_game/error field, storing anyway")
                 with state.lock:
                     state.latest_state = line.strip()
                     state.last_update = time.time()
@@ -280,10 +280,10 @@ def main():
         state.log("stdin reader thread started")
     else:
         # Running standalone (testing mode) - no Communication Mod connected
-        print(f"[BRIDGE] WARNING: stdin is a terminal (not piped)", file=sys.stderr, flush=True)
-        print(f"[BRIDGE] Running in STANDALONE mode (no Communication Mod)", file=sys.stderr, flush=True)
-        print(f"[BRIDGE] HTTP API is available, but no game state will be received", file=sys.stderr, flush=True)
-        print(f"[BRIDGE] For testing, use: python test_bridge.py fixtures/sample", file=sys.stderr, flush=True)
+        print("[BRIDGE] WARNING: stdin is a terminal (not piped)", file=sys.stderr, flush=True)
+        print("[BRIDGE] Running in STANDALONE mode (no Communication Mod)", file=sys.stderr, flush=True)
+        print("[BRIDGE] HTTP API is available, but no game state will be received", file=sys.stderr, flush=True)
+        print("[BRIDGE] For testing, use: python test_bridge.py fixtures/sample", file=sys.stderr, flush=True)
 
     # Create and start HTTP server (threaded for concurrent requests)
     server = ThreadingHTTPServer((args.host, args.port), BridgeHTTPHandler)
