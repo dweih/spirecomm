@@ -222,10 +222,24 @@ python test_bridge.py --create-sample fixtures/sample
 python test_bridge.py fixtures/sample
 ```
 
-## Example: Simple AI in Python
+## Example Clients
+
+### Fuzz Test Client (Python)
+
+A complete Python example client that makes random decisions:
+
+```bash
+cd examples
+python fuzz_test.py --verbose
+```
+
+See [examples/fuzz_test.py](examples/fuzz_test.py) for full source code and [examples/README.md](examples/README.md) for more examples.
+
+### Minimal Python Example
 
 ```python
 import requests
+import json
 import time
 
 BRIDGE_URL = "http://localhost:8080"
@@ -245,7 +259,7 @@ def main():
             break
 
         state = resp.json()
-        game_state = eval(state["state"])  # Parse JSON string
+        game_state = json.loads(state["state"])  # Parse JSON string
 
         if not game_state.get("ready_for_command"):
             time.sleep(0.05)

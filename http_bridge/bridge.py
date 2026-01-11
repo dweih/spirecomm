@@ -14,6 +14,15 @@ import os
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 import argparse
+from socketserver import ThreadingMixIn
+
+# ThreadingHTTPServer for Python 3.7+, manual implementation for older versions
+try:
+    from http.server import ThreadingHTTPServer
+except ImportError:
+    # Python < 3.7: Create ThreadingHTTPServer manually
+    class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
+        daemon_threads = True
 
 
 class BridgeState:
@@ -255,23 +264,32 @@ def main():
     if args.record_fixtures:
         print(f"[BRIDGE] Recording fixtures to: {args.record_fixtures}", file=sys.stderr, flush=True)
 
-    # CRITICAL: Send ready handshake to Communication Mod FIRST
-    # Communication Mod waits for client to signal ready before sending any data
-    state.log("Sending ready handshake to Communication Mod...")
-    print("ready", flush=True)  # Send to stdout (Communication Mod listens here)
-    state.ready_sent = True
-    state.log("Ready handshake sent, waiting for acknowledgment...")
+    # Check if stdin is a pipe (connected to Communication Mod) or a terminal
+    stdin_is_pipe = not sys.stdin.isatty()
 
-    # Start stdin reader thread AFTER sending ready
-    reader = threading.Thread(target=stdin_reader_thread, args=(state,), daemon=True)
-    reader.start()
-    state.log("stdin reader thread started")
+    if stdin_is_pipe:
+        # Running with Communication Mod - send ready handshake and start reader
+        state.log("stdin is a pipe, sending ready handshake to Communication Mod...")
+        print("ready", flush=True)  # Send to stdout (Communication Mod listens here)
+        state.ready_sent = True
+        state.log("Ready handshake sent, starting stdin reader...")
 
-    # Create and start HTTP server
-    server = HTTPServer((args.host, args.port), BridgeHTTPHandler)
+        # Start stdin reader thread AFTER sending ready
+        reader = threading.Thread(target=stdin_reader_thread, args=(state,), daemon=True)
+        reader.start()
+        state.log("stdin reader thread started")
+    else:
+        # Running standalone (testing mode) - no Communication Mod connected
+        print(f"[BRIDGE] WARNING: stdin is a terminal (not piped)", file=sys.stderr, flush=True)
+        print(f"[BRIDGE] Running in STANDALONE mode (no Communication Mod)", file=sys.stderr, flush=True)
+        print(f"[BRIDGE] HTTP API is available, but no game state will be received", file=sys.stderr, flush=True)
+        print(f"[BRIDGE] For testing, use: python test_bridge.py fixtures/sample", file=sys.stderr, flush=True)
+
+    # Create and start HTTP server (threaded for concurrent requests)
+    server = ThreadingHTTPServer((args.host, args.port), BridgeHTTPHandler)
     server.state = state  # Attach state to server for handler access
 
-    state.log("Starting HTTP server...")
+    state.log("Starting HTTP server (threaded)...")
 
     try:
         server.serve_forever()
