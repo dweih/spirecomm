@@ -4,13 +4,7 @@
 #include <string>
 #include <optional>
 #include <vector>
-
-// Forward declare nlohmann::json to avoid exposing it in public header
-namespace nlohmann {
-    template<typename T = void, typename SFINAE = void>
-    class basic_json;
-    using json = basic_json<>;
-}
+#include <nlohmann/json.hpp>
 
 namespace spirecomm {
 
