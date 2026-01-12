@@ -8,12 +8,58 @@ Wraps the Coordinator with an HTTP interface.
 import sys
 import json
 import threading
+import logging
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from http.server import HTTPServer
 
 from spirecomm.communication.coordinator import Coordinator
 from spirecomm.communication.action_factory import action_from_json
+
+
+# Global logger
+logger = None
+
+
+def setup_logger(log_file=None, debug=False):
+    """Setup file-based logger for both http_server and coordinator"""
+    global logger
+
+    # Default log file location
+    if log_file is None:
+        log_file = f'spirecomm_server_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'
+
+    # Formatter
+    formatter = logging.Formatter('%(asctime)s [%(name)s] [%(levelname)s] %(message)s',
+                                  datefmt='%Y-%m-%d %H:%M:%S')
+
+    # File handler (shared by all loggers)
+    file_handler = logging.FileHandler(log_file, mode='w', encoding='utf-8')
+    file_handler.setLevel(logging.DEBUG if debug else logging.INFO)
+    file_handler.setFormatter(formatter)
+
+    # Console handler (for initial startup messages)
+    console_handler = logging.StreamHandler(sys.stderr)
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(formatter)
+
+    # Configure http_server logger
+    logger = logging.getLogger('spirecomm.http_server')
+    logger.setLevel(logging.DEBUG if debug else logging.INFO)
+    logger.handlers = []
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+
+    # Configure coordinator logger
+    coord_logger = logging.getLogger('spirecomm.coordinator')
+    coord_logger.setLevel(logging.DEBUG if debug else logging.INFO)
+    coord_logger.handlers = []
+    coord_logger.addHandler(file_handler)
+    # No console handler for coordinator to reduce noise
+
+    logger.info(f"SpireComm HTTP Server starting. Logging to: {log_file}")
+    return log_file
 
 
 # ThreadingHTTPServer for Python 3.7+, manual implementation for older versions
@@ -100,10 +146,20 @@ class SpireCommHTTPHandler(BaseHTTPRequestHandler):
 
             try:
                 action_data = json.loads(body)
+
+                if self.server.debug:
+                    logger.debug(f"[HTTP] Received action: {action_data}")
+
                 action = action_from_json(action_data)
+
+                if self.server.debug:
+                    logger.debug(f"[HTTP] Created action object: {type(action).__name__}")
 
                 # Queue action in coordinator
                 coordinator.add_action_to_queue(action)
+
+                if self.server.debug:
+                    logger.debug(f"[HTTP] Queued action. Queue size: {len(coordinator.action_queue)}")
 
                 self._send_json_response(200, {
                     'status': 'queued',
@@ -111,16 +167,19 @@ class SpireCommHTTPHandler(BaseHTTPRequestHandler):
                 })
 
             except ValueError as e:
+                logger.error(f"[HTTP] ValueError: {e}")
                 self._send_json_response(400, {
                     'status': 'error',
                     'error': str(e)
                 })
             except json.JSONDecodeError:
+                logger.error("[HTTP] JSON decode error")
                 self._send_json_response(400, {
                     'status': 'error',
                     'error': 'Invalid JSON'
                 })
             except Exception as e:
+                logger.error(f"[HTTP] Unexpected error: {e}")
                 self._send_json_response(500, {
                     'status': 'error',
                     'error': str(e)
@@ -152,30 +211,41 @@ class SpireCommServer:
         """Custom coordinator loop that polls state without callbacks"""
         try:
             while True:
+                # Check if we have actions to execute
+                if self.coordinator.action_queue and self.debug:
+                    logger.debug(f"[COORDINATOR] Queue has {len(self.coordinator.action_queue)} action(s). "
+                                f"Ready: {self.coordinator.game_is_ready}")
+
                 # Execute any queued actions
-                self.coordinator.execute_next_action_if_ready()
+                executed = self.coordinator.execute_next_action_if_ready()
+
+                if executed and self.debug:
+                    logger.debug(f"[COORDINATOR] Action executed. Queue remaining: {len(self.coordinator.action_queue)}")
+
                 # Receive state updates but don't trigger callbacks
                 received = self.coordinator.receive_game_state_update(block=False, perform_callbacks=False)
 
                 if received and self.debug:
-                    print(f"[COORDINATOR] State update: in_game={self.coordinator.in_game}, "
-                          f"has_state={self.coordinator.last_game_state is not None}, "
-                          f"ready={self.coordinator.game_is_ready}",
-                          file=sys.stderr, flush=True)
+                    game_state = self.coordinator.last_game_state
+                    screen_type = game_state.screen_type.name if game_state and game_state.screen_type else "NONE"
+                    room_type = game_state.room_type if game_state else "Unknown"
+                    logger.debug(f"[COORDINATOR] State update: in_game={self.coordinator.in_game}, "
+                                f"ready={self.coordinator.game_is_ready}, "
+                                f"screen={screen_type}, room={room_type}")
         except (EOFError, BrokenPipeError):
             # Game disconnected - shut down server
-            print("\n[SPIRECOMM] Game disconnected, shutting down...", file=sys.stderr, flush=True)
+            logger.info("Game disconnected, shutting down...")
             if self.server:
                 self.server.shutdown()
 
     def run(self):
         """Start the HTTP server"""
-        print("[SPIRECOMM] Sending ready handshake...", file=sys.stderr, flush=True)
+        logger.info("Sending ready handshake...")
 
         # Send ready handshake
         self.coordinator.signal_ready()
 
-        print("[SPIRECOMM] Starting coordinator in background thread...", file=sys.stderr, flush=True)
+        logger.info("Starting coordinator in background thread...")
 
         # Start coordinator loop in background thread (custom loop without callbacks)
         coordinator_thread = threading.Thread(
@@ -189,15 +259,15 @@ class SpireCommServer:
         self.server.coordinator = self.coordinator
         self.server.debug = self.debug
 
-        print(f"[SPIRECOMM] HTTP server listening on http://{self.host}:{self.port}", file=sys.stderr, flush=True)
-        print(f"[SPIRECOMM] Debug mode: {self.debug}", file=sys.stderr, flush=True)
-        print("[SPIRECOMM] Ready for connections", file=sys.stderr, flush=True)
+        logger.info(f"HTTP server listening on http://{self.host}:{self.port}")
+        logger.info(f"Debug mode: {self.debug}")
+        logger.info("Ready for connections")
 
         # Start HTTP server on main thread
         try:
             self.server.serve_forever()
         except KeyboardInterrupt:
-            print("\n[SPIRECOMM] Shutting down...", file=sys.stderr, flush=True)
+            logger.info("Shutting down...")
             self.server.shutdown()
 
 
@@ -212,8 +282,16 @@ def main():
                         help='HTTP server host (default: 127.0.0.1)')
     parser.add_argument('--debug', action='store_true',
                         help='Enable debug logging')
+    parser.add_argument('--log-file', type=str, default=None,
+                        help='Log file path (default: spirecomm_server_TIMESTAMP.log)')
 
     args = parser.parse_args()
+
+    # Setup logging
+    log_file = setup_logger(log_file=args.log_file, debug=args.debug)
+
+    logger.info("Starting SpireComm HTTP Server")
+    logger.info(f"Log file: {log_file}")
 
     server = SpireCommServer(host=args.host, port=args.port, debug=args.debug)
     server.run()

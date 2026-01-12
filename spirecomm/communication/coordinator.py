@@ -3,10 +3,20 @@ import queue
 import threading
 import json
 import collections
+import logging
 
 from spirecomm.spire.game import Game
 from spirecomm.spire.screen import ScreenType
 from spirecomm.communication.action import Action, StartGameAction
+
+# Get logger (will be configured by http_server if used, or create basic one)
+logger = logging.getLogger('spirecomm.coordinator')
+if not logger.handlers:
+    # Create basic console handler if no logging configured
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(logging.Formatter('[%(name)s] %(message)s'))
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
 
 
 def read_stdin(input_queue):
@@ -76,6 +86,8 @@ class Coordinator:
         :type message: str
         :return: None
         """
+        # Debug logging
+        logger.info(f"Sending to game: {message}")
         self.output_queue.put(message)
         self.game_is_ready = False
 
@@ -101,15 +113,20 @@ class Coordinator:
         :return: None
         """
         action = self.action_queue.popleft()
+        logger.debug(f"Executing action: {type(action).__name__}")
         action.execute(self)
+        logger.debug(f"Action execution complete")
 
     def execute_next_action_if_ready(self):
         """Immediately execute the next action in the action queue, if ready to do so
 
-        :return: None
+        :return: True if an action was executed, False otherwise
+        :rtype: bool
         """
         if len(self.action_queue) > 0 and self.action_queue[0].can_be_executed(self):
             self.execute_next_action()
+            return True
+        return False
 
     def register_state_change_callback(self, new_callback):
         """Register a function to be called when a message is received from Communication Mod
