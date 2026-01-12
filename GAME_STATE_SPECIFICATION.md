@@ -10,7 +10,7 @@
 ### Screen Identification
 - `screen_type`: string - Primary screen identifier (see Screen States below)
 - `room_type`: string - Current room type (e.g., "MonsterRoom", "MonsterRoomBoss", "RestRoom", "ShopRoom", "TreasureRoom", "EventRoom", "NeowRoom")
-- `phase`: string - Game phase (e.g., "COMBAT", "OUT_OF_COMBAT")
+- `room_phase`: string - Room phase (e.g., "COMBAT", "OUT_OF_COMBAT")
 
 ### Available Command Flags
 - `play_available`: boolean - Can play cards
