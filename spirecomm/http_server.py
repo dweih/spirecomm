@@ -150,17 +150,23 @@ class SpireCommServer:
 
     def _coordinator_loop(self):
         """Custom coordinator loop that polls state without callbacks"""
-        while True:
-            # Execute any queued actions
-            self.coordinator.execute_next_action_if_ready()
-            # Receive state updates but don't trigger callbacks
-            received = self.coordinator.receive_game_state_update(block=False, perform_callbacks=False)
+        try:
+            while True:
+                # Execute any queued actions
+                self.coordinator.execute_next_action_if_ready()
+                # Receive state updates but don't trigger callbacks
+                received = self.coordinator.receive_game_state_update(block=False, perform_callbacks=False)
 
-            if received and self.debug:
-                print(f"[COORDINATOR] State update: in_game={self.coordinator.in_game}, "
-                      f"has_state={self.coordinator.last_game_state is not None}, "
-                      f"ready={self.coordinator.game_is_ready}",
-                      file=sys.stderr, flush=True)
+                if received and self.debug:
+                    print(f"[COORDINATOR] State update: in_game={self.coordinator.in_game}, "
+                          f"has_state={self.coordinator.last_game_state is not None}, "
+                          f"ready={self.coordinator.game_is_ready}",
+                          file=sys.stderr, flush=True)
+        except (EOFError, BrokenPipeError):
+            # Game disconnected - shut down server
+            print("\n[SPIRECOMM] Game disconnected, shutting down...", file=sys.stderr, flush=True)
+            if self.server:
+                self.server.shutdown()
 
     def run(self):
         """Start the HTTP server"""

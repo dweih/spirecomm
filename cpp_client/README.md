@@ -1,15 +1,16 @@
 # SpireComm C++ Client
 
-C++ client library for interfacing with Slay the Spire via the SpireComm HTTP bridge.
+C++ client library for interfacing with Slay the Spire via the SpireComm HTTP server.
 
 ## Overview
 
-The C++ client provides a high-level API for connecting to the SpireComm HTTP bridge, querying game state, and sending actions. Features include:
+The C++ client provides a high-level API for connecting to `spirecomm/http_server.py`, querying game state, and sending actions. Features include:
 
+- **Type-safe action methods**: `playCard()`, `endTurn()`, `usePotion()`, etc.
+- **Raw JSON state access**: Direct access to full game state via nlohmann/json
 - **Header-only dependencies**: cpp-httplib and nlohmann/json (auto-downloaded via CMake)
 - **PIMPL design**: Clean public interface, hidden implementation details
 - **Synchronous API**: Simple poll-based architecture (no threading complexity)
-- **Error handling**: Automatic retry logic with failure tracking
 - **Cross-platform**: Windows, Linux, macOS support
 
 ## Requirements
@@ -39,15 +40,15 @@ Dependencies (cpp-httplib and nlohmann/json) are automatically downloaded during
 
 ### 2. Run Example AI
 
+First, make sure you have the HTTP server running. See the main README for setup instructions.
+
 ```bash
 # Linux/Mac
-./build/bin/example_ai
+./build/bin/simple_ai
 
 # Windows
-.\build\bin\Release\example_ai.exe
+.\build\bin\Release\simple_ai.exe
 ```
-
-Make sure the HTTP bridge is running first! See [../http_bridge/README.md](../http_bridge/README.md).
 
 ### 3. Minimal Example
 
@@ -55,6 +56,7 @@ Make sure the HTTP bridge is running first! See [../http_bridge/README.md](../ht
 #include <spirecomm/client.hpp>
 #include <iostream>
 #include <thread>
+#include <chrono>
 
 int main() {
     spirecomm::ClientConfig config;
@@ -63,15 +65,9 @@ int main() {
 
     spirecomm::SpireCommClient client(config);
 
-    // Connect to bridge
+    // Connect to server
     if (!client.connect()) {
         std::cerr << "Failed to connect: " << client.getLastError() << std::endl;
-        return 1;
-    }
-
-    // Wait for game to start
-    if (!client.waitForReady(30000)) {
-        std::cerr << "Timeout: " << client.getLastError() << std::endl;
         return 1;
     }
 
@@ -80,12 +76,27 @@ int main() {
         auto state = client.getState();
 
         if (state && client.isReadyForCommand()) {
-            // Make decision
-            auto screen = client.getScreenType();
-            if (screen == "COMBAT") {
-                client.sendAction("end");  // End turn
-            } else if (screen == "MAP") {
-                client.sendAction("choose", 0);  // Pick first node
+            // Access game state
+            auto game_state = (*state)["game_state"];
+            int hp = game_state["current_hp"];
+            std::string screen_type = game_state["screen_type"];
+
+            std::cout << "HP: " << hp << ", Screen: " << screen_type << std::endl;
+
+            // Make decisions
+            auto commands = client.getAvailableCommands();
+            bool has_end = false;
+            for (const auto& cmd : commands) {
+                if (cmd == "end") {
+                    has_end = true;
+                    break;
+                }
+            }
+
+            if (has_end) {
+                client.endTurn();
+            } else {
+                client.proceed();
             }
         }
 
@@ -104,18 +115,16 @@ Configuration for SpireCommClient:
 
 ```cpp
 struct ClientConfig {
-    std::string host = "127.0.0.1";  // Bridge host
-    int port = 8080;                  // Bridge port
+    std::string host = "127.0.0.1";  // Server host
+    int port = 8080;                  // Server port
     int timeout_ms = 5000;            // HTTP request timeout
-    int poll_interval_ms = 50;        // Recommended polling interval
-    int max_consecutive_failures = 10; // Max failures before disconnect
     bool debug = false;               // Enable debug logging
 };
 ```
 
 ### SpireCommClient
 
-Main client class for communicating with the bridge.
+Main client class for communicating with the HTTP server.
 
 #### Constructor
 
@@ -126,11 +135,14 @@ SpireCommClient(const ClientConfig& config = ClientConfig());
 #### Connection Methods
 
 ```cpp
-// Check bridge health and connectivity
+// Connect to server and verify it's responding
 bool connect();
 
-// Wait for first game state (timeout in ms)
-bool waitForReady(int timeout_ms = 30000);
+// Check if connected to server
+bool isConnected() const;
+
+// Get last error message
+std::string getLastError() const;
 ```
 
 #### State Methods
@@ -139,59 +151,44 @@ bool waitForReady(int timeout_ms = 30000);
 // Get latest game state (returns nlohmann::json)
 std::optional<nlohmann::json> getState();
 
-// Check if state has been updated since last getState()
-bool hasNewState();
+// Check if currently in game
+bool isInGame() const;
+
+// Check if game is ready for command
+bool isReadyForCommand() const;
+
+// Get list of available commands
+std::vector<std::string> getAvailableCommands() const;
 ```
 
 #### Action Methods
 
 ```cpp
-// Send action command (e.g., "end", "proceed")
-bool sendAction(const std::string& command);
+// Play a card from hand (no target required)
+bool playCard(int card_index);
 
-// Send action with one argument (e.g., "play 1", "choose 0")
-bool sendAction(const std::string& command, int arg);
+// Play a card from hand targeting a monster
+bool playCard(int card_index, int target_index);
 
-// Send action with two arguments (e.g., "play 2 0" = play card 2 target monster 0)
-bool sendAction(const std::string& command, int arg1, int arg2);
+// End the current turn
+bool endTurn();
+
+// Use a potion (no target required)
+bool usePotion(int potion_index);
+
+// Use a potion targeting a monster
+bool usePotion(int potion_index, int target_index);
+
+// Discard a potion
+bool discardPotion(int potion_index);
+
+// Proceed to next screen (use for rewards, events, etc.)
+bool proceed();
 ```
 
-**Common Actions:**
-- `sendAction("end")` - End turn
-- `sendAction("proceed")` - Proceed to next screen
-- `sendAction("play", 1)` - Play card at hand position 1 (1-indexed!)
-- `sendAction("play", 2, 0)` - Play card 2, target monster 0 (0-indexed)
-- `sendAction("choose", 0)` - Choose option 0
-- `sendAction("potion use", 0)` - Use potion at slot 0
+**Important:** All indices are 0-based (card index 0 = first card in hand, monster index 0 = first monster).
 
-#### Status Methods
-
-```cpp
-// Get current connection status
-ConnectionStatus getStatus() const;
-
-// Get count of consecutive HTTP failures
-int getConsecutiveFailures() const;
-
-// Get last error message
-std::string getLastError() const;
-```
-
-#### Helper Methods
-
-Convenience methods that parse common fields from cached state:
-
-```cpp
-bool isInGame() const;                       // Parse "in_game" field
-bool isReadyForCommand() const;              // Parse "ready_for_command" field
-std::optional<std::string> getScreenType() const; // Parse "game_state.screen_type"
-std::optional<int> getCurrentHP() const;     // Parse "game_state.current_hp"
-std::optional<int> getMaxHP() const;         // Parse "game_state.max_hp"
-std::optional<int> getFloor() const;         // Parse "game_state.floor"
-std::optional<int> getAct() const;           // Parse "game_state.act"
-```
-
-## State JSON Structure
+## Game State JSON Structure
 
 The `getState()` method returns a `nlohmann::json` object with the following structure:
 
@@ -199,14 +196,13 @@ The `getState()` method returns a `nlohmann::json` object with the following str
 {
   "in_game": true,
   "ready_for_command": true,
-  "error": null,
   "game_state": {
     "current_hp": 45,
     "max_hp": 70,
     "floor": 15,
     "act": 2,
     "gold": 250,
-    "class": "IRONCLAD",
+    "character": "IRONCLAD",
     "screen_type": "COMBAT",
     "room_phase": "COMBAT",
     "relics": [...],
@@ -225,10 +221,19 @@ The `getState()` method returns a `nlohmann::json` object with the following str
           "current_hp": 30,
           "max_hp": 42,
           "intent": "ATTACK",
-          "move_base_damage": 11
+          "move_base_damage": 11,
+          "is_gone": false
         }
       ],
-      "hand": [...],
+      "hand": [
+        {
+          "name": "Strike",
+          "cost": 1,
+          "type": "ATTACK",
+          "is_playable": true,
+          "has_target": true
+        }
+      ],
       "draw_pile": [...],
       "discard_pile": [...],
       "turn": 5
@@ -248,16 +253,86 @@ if (state["game_state"]["screen_type"] == "COMBAT") {
     // Access combat state
     auto monsters = state["game_state"]["combat_state"]["monsters"];
     for (const auto& monster : monsters) {
-        std::cout << "Monster: " << monster["name"]
-                  << " HP: " << monster["current_hp"] << std::endl;
+        if (!monster["is_gone"]) {
+            std::cout << "Monster: " << monster["name"]
+                      << " HP: " << monster["current_hp"] << std::endl;
+        }
     }
 
     // Access hand
     auto hand = state["game_state"]["combat_state"]["hand"];
-    for (const auto& card : hand) {
-        std::cout << "Card: " << card["name"]
-                  << " Cost: " << card["cost"] << std::endl;
+    for (size_t i = 0; i < hand.size(); ++i) {
+        std::cout << "Card " << i << ": " << hand[i]["name"]
+                  << " Cost: " << hand[i]["cost"]
+                  << " Playable: " << hand[i]["is_playable"] << std::endl;
     }
+}
+```
+
+## Example Usage Patterns
+
+### Making Combat Decisions
+
+```cpp
+auto state = client.getState();
+if (!state || !client.isReadyForCommand()) {
+    return;
+}
+
+auto commands = client.getAvailableCommands();
+bool can_play = false;
+for (const auto& cmd : commands) {
+    if (cmd == "play") {
+        can_play = true;
+        break;
+    }
+}
+
+if (can_play) {
+    // Play a card
+    auto hand = (*state)["game_state"]["combat_state"]["hand"];
+    for (size_t i = 0; i < hand.size(); ++i) {
+        if (hand[i]["is_playable"]) {
+            if (hand[i]["has_target"]) {
+                // Target first alive monster
+                auto monsters = (*state)["game_state"]["combat_state"]["monsters"];
+                for (size_t j = 0; j < monsters.size(); ++j) {
+                    if (!monsters[j]["is_gone"] && monsters[j]["current_hp"] > 0) {
+                        client.playCard(i, j);
+                        return;
+                    }
+                }
+            } else {
+                client.playCard(i);
+                return;
+            }
+        }
+    }
+}
+
+// If can't play, end turn
+client.endTurn();
+```
+
+### Error Handling
+
+```cpp
+spirecomm::SpireCommClient client(config);
+
+if (!client.connect()) {
+    std::cerr << "Connection failed: " << client.getLastError() << std::endl;
+    return 1;
+}
+
+while (true) {
+    auto state = client.getState();
+    if (!state) {
+        std::cerr << "Failed to get state: " << client.getLastError() << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        continue;
+    }
+
+    // Process state...
 }
 ```
 
@@ -301,121 +376,9 @@ add_subdirectory(external/spirecomm_cpp_client)
 add_executable(my_ai
     src/main.cpp
     src/strategy.cpp
-    src/mcts.cpp
 )
 
 target_link_libraries(my_ai PRIVATE spirecomm)
-```
-
-## Advanced Usage
-
-### Accessing Raw JSON State
-
-```cpp
-auto state_opt = client.getState();
-if (state_opt) {
-    auto state = *state_opt;
-
-    // Full JSON access with nlohmann/json
-    if (state.contains("game_state") &&
-        state["game_state"].contains("combat_state")) {
-
-        auto combat = state["game_state"]["combat_state"];
-
-        // Iterate monsters
-        for (const auto& monster : combat["monsters"]) {
-            if (!monster["is_gone"] && monster["current_hp"] > 0) {
-                std::cout << monster["name"] << ": "
-                          << monster["current_hp"] << " HP, "
-                          << "Intent: " << monster["intent"] << std::endl;
-            }
-        }
-
-        // Check player state
-        auto player = combat["player"];
-        std::cout << "Player: " << player["current_hp"] << " HP, "
-                  << player["energy"] << " energy, "
-                  << player["block"] << " block" << std::endl;
-    }
-}
-```
-
-### Error Handling
-
-```cpp
-spirecomm::SpireCommClient client(config);
-
-if (!client.connect()) {
-    std::cerr << "Connection failed: " << client.getLastError() << std::endl;
-    return 1;
-}
-
-while (true) {
-    auto state = client.getState();
-    if (!state) {
-        // Check failure count
-        if (client.getConsecutiveFailures() >= 5) {
-            std::cerr << "Too many failures, reconnecting..." << std::endl;
-            if (!client.connect()) {
-                std::cerr << "Reconnection failed!" << std::endl;
-                break;
-            }
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        continue;
-    }
-
-    // Process state...
-}
-```
-
-### Custom Polling Loop
-
-```cpp
-#include <chrono>
-
-auto last_poll = std::chrono::steady_clock::now();
-const auto poll_interval = std::chrono::milliseconds(50);
-
-while (true) {
-    auto now = std::chrono::steady_clock::now();
-
-    if (now - last_poll >= poll_interval) {
-        auto state = client.getState();
-        // Process state...
-
-        last_poll = now;
-    }
-
-    // Do other work (MCTS, neural network inference, etc.)
-    compute_next_move();
-}
-```
-
-## Testing
-
-### Test Against Fixtures
-
-Use the bridge's fixture replay for testing without the game:
-
-```bash
-# Terminal 1: Start fixture replay
-cd ../http_bridge
-python test_bridge.py fixtures/sample --delay-ms 100
-
-# Terminal 2: Run your AI
-cd cpp_client/build/bin
-./example_ai
-```
-
-### Unit Tests
-
-Enable tests during build:
-
-```bash
-cmake -B build -DBUILD_TESTS=ON
-cmake --build build
-cd build && ctest
 ```
 
 ## Platform-Specific Notes
@@ -424,7 +387,8 @@ cd build && ctest
 
 - Winsock libraries (ws2_32, crypt32) are automatically linked
 - Use Visual Studio 2017+ or MinGW-w64
-- Paths use backslashes: `.\\build\\bin\\Release\\example_ai.exe`
+- Paths use backslashes: `.\\build\\bin\\Release\\simple_ai.exe`
+- Run from Command Prompt or PowerShell
 
 ### Linux
 
@@ -453,32 +417,34 @@ target_link_libraries(your_target PRIVATE ws2_32 crypt32)
 **Solution:** Download headers manually and disable FetchContent:
 
 ```bash
-cd include
+cd include/spirecomm
 wget https://raw.githubusercontent.com/yhirose/cpp-httplib/v0.14.3/httplib.h
+cd ../..
 wget https://github.com/nlohmann/json/releases/download/v3.11.3/json.hpp
 ```
 
-### Can't connect to bridge
+### Can't connect to server
 
 **Problem:** Connection refused
 **Solution:**
-1. Ensure bridge is running: `curl http://localhost:8080/health`
-2. Check port matches: `--port 8080`
-3. Enable debug logging: `config.debug = true`
+1. Ensure http_server.py is running: `python spirecomm/http_server.py`
+2. Check health endpoint: `curl http://localhost:8080/health`
+3. Check port matches: `--port 8080`
+4. Enable debug logging: `config.debug = true`
 
 ### State is always empty
 
 **Problem:** `getState()` returns `std::nullopt`
 **Solution:**
 1. Game must be started (not at main menu)
-2. Wait for ready: `client.waitForReady(30000)`
-3. Check bridge has state: `curl http://localhost:8080/state`
+2. Check server has state: `curl http://localhost:8080/state`
+3. Verify Communication Mod is configured correctly
 
 ## Performance
 
 - **HTTP latency**: 1-3ms per request
 - **JSON parsing**: 0.1-1ms per state
-- **Recommended poll rate**: 50ms (20 Hz)
+- **Recommended poll rate**: 50-100ms (10-20 Hz)
 - **CPU usage**: Minimal (<1% when idle)
 
 ## Dependencies
@@ -488,16 +454,13 @@ Auto-downloaded via CMake FetchContent:
 - **cpp-httplib** v0.14.3 ([GitHub](https://github.com/yhirose/cpp-httplib)) - MIT License
 - **nlohmann/json** v3.11.3 ([GitHub](https://github.com/nlohmann/json)) - MIT License
 
-## Contributing
+## See Also
 
-Found a bug? Have a feature request? Please open an issue or submit a pull request!
+- [HTTP Server](../spirecomm/http_server.py) - Python HTTP server
+- [Python Client Example](../examples/combat_test_client.py) - Python reference implementation
+- [Communication Mod](https://github.com/ForgottenArbiter/CommunicationMod) - The underlying mod
+- [SpireComm](https://github.com/ForgottenArbiter/spirecomm) - Original Python library
 
 ## License
 
 Same as SpireComm (MIT License)
-
-## See Also
-
-- [HTTP Bridge](../http_bridge/README.md) - Python bridge documentation
-- [Communication Mod](https://github.com/ForgottenArbiter/CommunicationMod) - The underlying mod
-- [SpireComm](https://github.com/ForgottenArbiter/spirecomm) - Original Python library

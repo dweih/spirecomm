@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(spirecomm_cpp VERSION 0.1.0 LANGUAGES CXX)
+project(spirecomm_cpp VERSION 1.0.0 LANGUAGES CXX)
 
 # C++17 required
 set(CMAKE_CXX_STANDARD 17)
@@ -54,13 +54,6 @@ endif()
 
 # Examples subdirectory
 add_subdirectory(examples)
-
-# Tests (optional)
-option(BUILD_TESTS "Build tests" OFF)
-if(BUILD_TESTS)
-    enable_testing()
-    add_subdirectory(tests)
-endif()
 
 # Installation rules (optional)
 install(TARGETS spirecomm

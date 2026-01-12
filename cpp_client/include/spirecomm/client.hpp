@@ -1,9 +1,9 @@
 #pragma once
 
-#include "types.hpp"
 #include <memory>
 #include <string>
 #include <optional>
+#include <vector>
 
 // Forward declare nlohmann::json to avoid exposing it in public header
 namespace nlohmann {
@@ -15,22 +15,33 @@ namespace nlohmann {
 namespace spirecomm {
 
 /**
+ * Configuration for SpireCommClient
+ */
+struct ClientConfig {
+    std::string host = "127.0.0.1";  // Server host
+    int port = 8080;                  // Server port
+    int timeout_ms = 5000;            // HTTP request timeout
+    bool debug = false;               // Enable debug logging
+};
+
+/**
  * SpireComm HTTP Client
  *
- * Connects to the SpireComm HTTP bridge and provides high-level API
+ * Connects to spirecomm/http_server.py and provides high-level API
  * for querying game state and sending actions.
  *
  * Usage:
  *   ClientConfig config;
  *   config.port = 8080;
+ *   config.debug = true;
+ *
  *   SpireCommClient client(config);
  *
  *   if (client.connect()) {
- *       client.waitForReady(30000);
  *       while (true) {
  *           auto state = client.getState();
  *           if (state && client.isReadyForCommand()) {
- *               client.sendAction("end");
+ *               client.endTurn();
  *           }
  *           std::this_thread::sleep_for(std::chrono::milliseconds(50));
  *       }
@@ -57,113 +68,101 @@ public:
     SpireCommClient& operator=(SpireCommClient&&) noexcept;
 
     /**
-     * Check bridge health and connectivity
-     * @return true if bridge is reachable and healthy
+     * Connect to server and verify it's responding
+     * @return true if server is reachable and healthy
      */
     bool connect();
 
     /**
-     * Wait for first game state to be available
-     * @param timeout_ms Maximum time to wait in milliseconds
-     * @return true if state became available within timeout
+     * Check if connected to server
+     * @return true if last connection attempt succeeded
      */
-    bool waitForReady(int timeout_ms = 30000);
+    bool isConnected() const;
 
     /**
-     * Poll for latest game state
-     * Returns cached state if timestamp unchanged since last call.
+     * Get last error message
+     * @return Error message from last failed operation
+     */
+    std::string getLastError() const;
+
+    /**
+     * Get current game state
+     * Returns the full JSON state object from the server.
      * @return Game state JSON if available, empty optional otherwise
      */
     std::optional<nlohmann::json> getState();
 
     /**
-     * Check if new state is available (timestamp changed)
-     * @return true if state has been updated since last getState()
-     */
-    bool hasNewState();
-
-    /**
-     * Send action command to bridge
-     * @param command Action command string (e.g., "end", "proceed")
-     * @return true if action sent successfully
-     */
-    bool sendAction(const std::string& command);
-
-    /**
-     * Send action with one integer argument
-     * @param command Command string (e.g., "play", "choose")
-     * @param arg Integer argument (e.g., card index, choice index)
-     * @return true if action sent successfully
-     */
-    bool sendAction(const std::string& command, int arg);
-
-    /**
-     * Send action with two integer arguments
-     * @param command Command string (e.g., "play", "potion use")
-     * @param arg1 First integer argument
-     * @param arg2 Second integer argument
-     * @return true if action sent successfully
-     */
-    bool sendAction(const std::string& command, int arg1, int arg2);
-
-    /**
-     * Get current connection status
-     */
-    ConnectionStatus getStatus() const;
-
-    /**
-     * Get count of consecutive HTTP failures
-     */
-    int getConsecutiveFailures() const;
-
-    /**
-     * Get last error message
-     */
-    std::string getLastError() const;
-
-    // Convenience helpers (parse common fields from cached state)
-
-    /**
      * Check if currently in game
      * Parses cached state for "in_game" field.
+     * @return true if in an active game
      */
     bool isInGame() const;
 
     /**
      * Check if game is ready for command
      * Parses cached state for "ready_for_command" field.
+     * @return true if ready to accept actions
      */
     bool isReadyForCommand() const;
 
     /**
-     * Get current screen type (e.g., "COMBAT", "EVENT", "MAP")
-     * Parses cached state for "game_state.screen_type" field.
+     * Get list of available commands
+     * Parses cached state for "available_commands" field.
+     * @return Vector of command names (e.g., ["play", "end", "proceed"])
      */
-    std::optional<std::string> getScreenType() const;
+    std::vector<std::string> getAvailableCommands() const;
+
+    // Type-safe action methods
 
     /**
-     * Get current HP
-     * Parses cached state for "game_state.current_hp" field.
+     * Play a card from hand (no target required)
+     * @param card_index Index of card in hand (0-indexed)
+     * @return true if action sent successfully
      */
-    std::optional<int> getCurrentHP() const;
+    bool playCard(int card_index);
 
     /**
-     * Get maximum HP
-     * Parses cached state for "game_state.max_hp" field.
+     * Play a card from hand targeting a monster
+     * @param card_index Index of card in hand (0-indexed)
+     * @param target_index Index of target monster (0-indexed)
+     * @return true if action sent successfully
      */
-    std::optional<int> getMaxHP() const;
+    bool playCard(int card_index, int target_index);
 
     /**
-     * Get current floor
-     * Parses cached state for "game_state.floor" field.
+     * End the current turn
+     * @return true if action sent successfully
      */
-    std::optional<int> getFloor() const;
+    bool endTurn();
 
     /**
-     * Get current act
-     * Parses cached state for "game_state.act" field.
+     * Use a potion (no target required)
+     * @param potion_index Index of potion slot (0-indexed)
+     * @return true if action sent successfully
      */
-    std::optional<int> getAct() const;
+    bool usePotion(int potion_index);
+
+    /**
+     * Use a potion targeting a monster
+     * @param potion_index Index of potion slot (0-indexed)
+     * @param target_index Index of target monster (0-indexed)
+     * @return true if action sent successfully
+     */
+    bool usePotion(int potion_index, int target_index);
+
+    /**
+     * Discard a potion
+     * @param potion_index Index of potion slot (0-indexed)
+     * @return true if action sent successfully
+     */
+    bool discardPotion(int potion_index);
+
+    /**
+     * Proceed to next screen (use for rewards, events, etc.)
+     * @return true if action sent successfully
+     */
+    bool proceed();
 
 private:
     // PIMPL idiom to hide implementation details
