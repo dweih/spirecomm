@@ -46,6 +46,7 @@ class FullGameClient:
         self.verbose = verbose
         self.actions_taken = 0
         self.floors_completed = 0
+        self.leave_shop_flag = False  # Flag to leave shop on next opportunity, required for shop room handling
 
     def log(self, message):
         if self.verbose:
@@ -257,8 +258,8 @@ class FullGameClient:
 
         self.print(f"  -> Choosing reward {reward_index}: {reward_type}")
         return self.send_action({
-            "type": "combat_reward",
-            "reward_index": reward_index
+            "type": "choose",
+            "choice_index": reward_index
         })
 
     def handle_boss_reward(self, state):
@@ -302,6 +303,10 @@ class FullGameClient:
 
     def handle_shop_room(self, state):
         """Handle shop room (outside the shop)"""
+        if self.leave_shop_flag:
+            self.print("  -> Leaving shop")
+            self.leave_shop_flag = False
+            return self.send_action({"type": "proceed"})
         self.print("  -> Entering shop")
         return self.send_action({
             "type": "choose",
@@ -310,6 +315,11 @@ class FullGameClient:
 
     def handle_shop(self, state):
         """Handle shop screen"""
+
+        def _leave_shop():
+            self.leave_shop_flag = True
+            return self.send_action({"type": "cancel"})
+
         game_state = state['game_state']
         screen = game_state.get('screen', {})
 
@@ -323,7 +333,7 @@ class FullGameClient:
         # 50% chance to leave immediately
         if random.random() < 0.5:
             self.print("  -> Leaving shop")
-            return self.send_action({"type": "proceed"})
+            return _leave_shop()
 
         # Try to buy something random
         buyable_items = []
@@ -372,7 +382,7 @@ class FullGameClient:
         else:
             # Can't afford anything, leave
             self.print("  -> Can't afford anything, leaving shop")
-            return self.send_action({"type": "proceed"})
+            return _leave_shop()
 
     def handle_event(self, state):
         """Handle event screen"""
@@ -584,7 +594,7 @@ class FullGameClient:
         elif screen_type == 'HAND_SELECT':
             return self.handle_hand_select(state)
 
-        elif room_type in ['MonsterRoom', 'MonsterRoomBoss'] and phase == 'COMBAT':
+        elif room_type in ['MonsterRoom', 'MonsterRoomBoss', 'MonsterRoomElite'] and phase == 'COMBAT':
             return self.handle_combat(state)
 
         else:
