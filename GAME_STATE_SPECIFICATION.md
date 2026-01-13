@@ -132,8 +132,8 @@ When `in_combat` is true, a `combat_state` object is present:
   - Type-specific fields: `gold`, `relic`, `potion`, `link`
 
 **Valid Actions:**
-- `combat_reward`: Claim a reward
-  - Requires: `reward_index`
+- `choose`: Claim a reward
+  - Requires: `choice_index` (index into rewards array, 0 to len-1)
 - `proceed`: Skip remaining rewards and continue
 
 **Transition:**
@@ -368,7 +368,6 @@ All actions are JSON objects with a `type` field and type-specific parameters:
 {"type": "rest", "option": "smith"}
 {"type": "card_reward", "card_name": "Strike"}
 {"type": "card_reward", "bowl": true}
-{"type": "combat_reward", "reward_index": 0}
 {"type": "boss_reward", "relic_name": "Runic Dome"}
 {"type": "buy_card", "card_name": "Defend"}
 {"type": "buy_relic", "relic_name": "Bag of Preparation"}
@@ -449,7 +448,7 @@ COMBAT → (victory) → COMBAT_REWARD → proceed → MAP
 ```
 - Combat ends automatically when all monsters defeated or player dies
 - COMBAT_REWARD appears with available rewards
-- Claim rewards with `combat_reward` actions (may trigger CARD_REWARD)
+- Claim rewards with `choose` actions using reward index (may trigger CARD_REWARD)
 - When done collecting rewards: `proceed` → MAP
 - For boss fights: BOSS_REWARD instead of COMBAT_REWARD
 
@@ -522,8 +521,8 @@ OUT_OF_GAME
   → COMBAT
   → play_card, end_turn (repeat until victory)
   → COMBAT_REWARD
-  → combat_reward (claim gold)
-  → combat_reward (claim card reward)
+  → choose 0 (claim gold)
+  → choose 1 (claim card reward)
   → CARD_REWARD
   → card_reward (pick card)
   → COMBAT_REWARD (back)

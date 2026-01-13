@@ -402,6 +402,31 @@ target_link_libraries(my_ai PRIVATE spirecomm)
 
 ## Troubleshooting
 
+### Action queue stuck or not processing
+
+**Problem:** Commands are queued but not executing, or `queue_size` keeps growing
+**Symptoms:**
+- Health endpoint shows increasing `queue_size`
+- `game_ready` remains `false` for extended periods
+- Server log shows actions queued but not executed
+
+**Cause:** Invalid or malformed commands can cause Communication Mod to hang, preventing subsequent commands from executing.
+
+**Solution:** Clear the action queue using the `/clear` endpoint:
+
+```bash
+# Check queue status
+curl http://localhost:8080/health
+
+# Clear stuck queue
+curl -X POST http://localhost:8080/clear
+
+# Verify queue cleared
+curl http://localhost:8080/health
+```
+
+This is primarily a development/debugging tool. In production, validate all commands before sending to avoid queue blocking.
+
 ### Linker errors on Windows
 
 **Problem:** Undefined reference to Winsock functions
@@ -456,7 +481,9 @@ Auto-downloaded via CMake FetchContent:
 
 ## See Also
 
-- [HTTP Server](../spirecomm/http_server.py) - Python HTTP server
+- [HTTP_API.md](../HTTP_API.md) - Complete HTTP API documentation (endpoints, logging, recovery)
+- [GAME_STATE_SPECIFICATION.md](../GAME_STATE_SPECIFICATION.md) - Game state structure and action format
+- [HTTP Server](../spirecomm/http_server.py) - Python HTTP server implementation
 - [Python Client Example](../examples/combat_test_client.py) - Python reference implementation
 - [Communication Mod](https://github.com/ForgottenArbiter/CommunicationMod) - The underlying mod
 - [SpireComm](https://github.com/ForgottenArbiter/spirecomm) - Original Python library

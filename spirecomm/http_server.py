@@ -1,8 +1,20 @@
 #!/usr/bin/env python3
 """
-SpireComm HTTP Server - Minimal implementation for combat testing
+SpireComm HTTP Server - REST API for controlling Slay the Spire
 
-Wraps the Coordinator with an HTTP interface.
+Wraps the Coordinator with an HTTP interface, providing endpoints for
+querying game state and sending actions.
+
+Usage:
+    python -m spirecomm.http_server [--port PORT] [--host HOST] [--debug] [--log-file FILE]
+
+Endpoints:
+    GET  /health  - Health check and queue status
+    GET  /state   - Current game state
+    POST /action  - Queue an action
+    POST /clear   - Clear action queue
+
+For complete API documentation, see HTTP_API.md
 """
 
 import sys
@@ -132,6 +144,18 @@ class SpireCommHTTPHandler(BaseHTTPRequestHandler):
 
                 self._send_json_response(200, response)
 
+        elif self.path == '/clear':
+            # Clear the action queue
+            coordinator.clear_actions()
+
+            if self.server.debug:
+                logger.debug("[HTTP] Action queue cleared (GET)")
+
+            self._send_json_response(200, {
+                'status': 'cleared',
+                'queue_size': 0
+            })
+
         else:
             self._send_json_response(404, {'error': 'Not found'})
 
@@ -184,6 +208,18 @@ class SpireCommHTTPHandler(BaseHTTPRequestHandler):
                     'status': 'error',
                     'error': str(e)
                 })
+
+        elif self.path == '/clear':
+            # Clear the action queue
+            coordinator.clear_actions()
+
+            if self.server.debug:
+                logger.debug("[HTTP] Action queue cleared")
+
+            self._send_json_response(200, {
+                'status': 'cleared',
+                'queue_size': 0
+            })
 
         else:
             self._send_json_response(404, {'error': 'Not found'})
