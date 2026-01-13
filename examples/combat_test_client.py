@@ -196,8 +196,8 @@ class RandomCombatAI:
             combat_state = game_state.get('combat_state', {})
             hand = combat_state.get('hand', [])
 
-            # 70% chance to play a card
-            if hand and random.random() < 0.7:
+            # 90% chance to play a card
+            if hand and random.random() < 0.9:
                 # Pick random playable card
                 playable_cards = [i for i, card in enumerate(hand) if card.get('is_playable', False)]
 
@@ -258,12 +258,18 @@ class RandomCombatAI:
                 self.log("Game ended!")
                 break
 
-            # Make decision
-            action = self.make_combat_decision(state)
-            if action:
-                self.client.send_action(action)
+            # Check if we're in combat and make a decision
+            game_state = state.get('game_state', {})
+            room_type = game_state.get('room_type', 'UNKNOWN')
+            room_phase = game_state.get('room_phase', 'UNKNOWN')
+            if room_type in ['MonsterRoom', 'MonsterRoomBoss', 'MonsterRoomElite'] and room_phase == 'COMBAT':
+                action = self.make_combat_decision(state)
+                if action:
+                    self.client.send_action(action)
+            else:
+                self.log(f"Not in combat (room: {room_type}, phase: {room_phase})")
 
-            time.sleep(0.1)
+            time.sleep(1)
 
         return True
 
