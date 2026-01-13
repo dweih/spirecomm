@@ -66,6 +66,14 @@ class EventOption:
         choice_index = json_object.get("choice_index", None)
         return cls(text, label, disabled, choice_index)
 
+    def to_json(self):
+        return {
+            'text': self.text,
+            'label': self.label,
+            'disabled': self.disabled,
+            'choice_index': self.choice_index
+        }
+
 
 class Screen:
 
@@ -77,6 +85,11 @@ class Screen:
     @classmethod
     def from_json(cls, json_object):
         return cls()
+
+    def to_json(self):
+        return {
+            'screen_type': self.screen_type.name
+        }
 
 
 class ChestScreen(Screen):
@@ -104,6 +117,13 @@ class ChestScreen(Screen):
         chest_open = json_object.get("chest_open")
         return cls(chest_type, chest_open)
 
+    def to_json(self):
+        return {
+            'screen_type': self.screen_type.name,
+            'chest_type': self.chest_type.name,
+            'chest_open': self.chest_open
+        }
+
 
 class EventScreen(Screen):
 
@@ -122,6 +142,15 @@ class EventScreen(Screen):
         for json_option in json_object["options"]:
             event.options.append(EventOption.from_json(json_option))
         return event
+
+    def to_json(self):
+        return {
+            'screen_type': self.screen_type.name,
+            'event_name': self.event_name,
+            'event_id': self.event_id,
+            'body_text': self.body_text,
+            'options': [option.to_json() for option in self.options]
+        }
 
 
 class ShopRoomScreen(Screen):
@@ -143,6 +172,13 @@ class RestScreen(Screen):
         rest_options = [RestOption[option.upper()] for option in json_object.get("rest_options")]
         return cls(json_object.get("has_rested"), rest_options)
 
+    def to_json(self):
+        return {
+            'screen_type': self.screen_type.name,
+            'has_rested': self.has_rested,
+            'rest_options': [option.name for option in self.rest_options]
+        }
+
 
 class CardRewardScreen(Screen):
 
@@ -161,6 +197,14 @@ class CardRewardScreen(Screen):
         can_skip = json_object.get("skip_available")
         return cls(cards, can_bowl, can_skip)
 
+    def to_json(self):
+        return {
+            'screen_type': self.screen_type.name,
+            'cards': [card.to_json() for card in self.cards],
+            'can_bowl': self.can_bowl,
+            'can_skip': self.can_skip
+        }
+
 
 class CombatReward:
 
@@ -174,6 +218,19 @@ class CombatReward:
     def __eq__(self, other):
         return self.reward_type == other.reward_type and self.gold == other.gold \
                and self.relic == other.relic and self.potion == other.potion and self.link == other.link
+
+    def to_json(self):
+        result = {
+            'reward_type': self.reward_type.name,
+            'gold': self.gold
+        }
+        if self.relic is not None:
+            result['relic'] = self.relic.to_json()
+        if self.potion is not None:
+            result['potion'] = self.potion.to_json()
+        if self.link is not None:
+            result['link'] = self.link.to_json()
+        return result
 
 
 class CombatRewardScreen(Screen):
@@ -201,6 +258,12 @@ class CombatRewardScreen(Screen):
                 rewards.append(CombatReward(reward_type))
         return cls(rewards)
 
+    def to_json(self):
+        return {
+            'screen_type': self.screen_type.name,
+            'rewards': [reward.to_json() for reward in self.rewards]
+        }
+
 
 class MapScreen(Screen):
 
@@ -227,6 +290,14 @@ class MapScreen(Screen):
             next_nodes = []
         return cls(current_node, next_nodes, boss_available)
 
+    def to_json(self):
+        return {
+            'screen_type': self.screen_type.name,
+            'current_node': self.current_node.to_json() if self.current_node is not None else None,
+            'next_nodes': [node.to_json() for node in self.next_nodes],
+            'boss_available': self.boss_available
+        }
+
 
 class BossRewardScreen(Screen):
 
@@ -240,6 +311,12 @@ class BossRewardScreen(Screen):
     def from_json(cls, json_object):
         relics = [Relic.from_json(relic) for relic in json_object.get("relics")]
         return cls(relics)
+
+    def to_json(self):
+        return {
+            'screen_type': self.screen_type.name,
+            'relics': [relic.to_json() for relic in self.relics]
+        }
 
 
 class ShopScreen(Screen):
@@ -262,6 +339,16 @@ class ShopScreen(Screen):
         purge_available = json_object.get("purge_available")
         purge_cost = json_object.get("purge_cost")
         return cls(cards, relics, potions, purge_available, purge_cost)
+
+    def to_json(self):
+        return {
+            'screen_type': self.screen_type.name,
+            'cards': [card.to_json() for card in self.cards],
+            'relics': [relic.to_json() for relic in self.relics],
+            'potions': [potion.to_json() for potion in self.potions],
+            'purge_available': self.purge_available,
+            'purge_cost': self.purge_cost
+        }
 
 
 class GridSelectScreen(Screen):
@@ -291,6 +378,19 @@ class GridSelectScreen(Screen):
         for_purge = json_object.get("for_purge")
         return cls(cards, selected_cards, num_cards, any_number, confirm_up, for_upgrade, for_transform, for_purge)
 
+    def to_json(self):
+        return {
+            'screen_type': self.screen_type.name,
+            'cards': [card.to_json() for card in self.cards],
+            'selected_cards': [card.to_json() for card in self.selected_cards],
+            'num_cards': self.num_cards,
+            'any_number': self.any_number,
+            'confirm_up': self.confirm_up,
+            'for_upgrade': self.for_upgrade,
+            'for_transform': self.for_transform,
+            'for_purge': self.for_purge
+        }
+
 
 class HandSelectScreen(Screen):
 
@@ -311,6 +411,15 @@ class HandSelectScreen(Screen):
         can_pick_zero = json_object.get("can_pick_zero")
         return cls(cards, selected_cards, num_cards, can_pick_zero)
 
+    def to_json(self):
+        return {
+            'screen_type': self.screen_type.name,
+            'cards': [card.to_json() for card in self.cards],
+            'selected_cards': [card.to_json() for card in self.selected_cards],
+            'num_cards': self.num_cards,
+            'can_pick_zero': self.can_pick_zero
+        }
+
 
 class GameOverScreen(Screen):
 
@@ -324,6 +433,13 @@ class GameOverScreen(Screen):
     @classmethod
     def from_json(cls, json_object):
         return cls(json_object.get("score"), json_object.get("victory"))
+
+    def to_json(self):
+        return {
+            'screen_type': self.screen_type.name,
+            'score': self.score,
+            'victory': self.victory
+        }
 
 
 class CompleteScreen(Screen):

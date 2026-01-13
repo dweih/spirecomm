@@ -184,7 +184,7 @@ class FullGameClient:
         game_state = state['game_state']
         screen = game_state.get('screen', {})
 
-        next_nodes = game_state.get('choice_list', [])
+        next_nodes = screen.get('next_nodes', [])
         boss_available = screen.get('boss_available', False)
 
         # Small chance to go to boss if available
@@ -192,11 +192,11 @@ class FullGameClient:
             self.print("  -> Choosing boss node")
             return self.send_action({"type": "choose_map_boss"})
 
-        # Choose random next node
-        # According to spec, choice_list contains node indices
+        # Choose random next node from available nodes
         if next_nodes:
-            choice_index = random.choice(next_nodes)
-            self.print(f"  -> Choosing map node index {choice_index}")
+            choice_index = random.randint(0, len(next_nodes) - 1)
+            node = next_nodes[choice_index]
+            self.print(f"  -> Choosing map node {choice_index} to {node.get('symbol', '?')}")
             return self.send_action({
                 "type": "choose",
                 "choice_index": choice_index
@@ -392,12 +392,22 @@ class FullGameClient:
             self.log(f"  option[{i}]: choice_index={opt.get('choice_index')}, "
                     f"disabled={opt.get('disabled')}, label={opt.get('label', '?')[:40]}")
 
-        # Filter out disabled options
-        enabled_options = [opt for opt in options if not opt.get('disabled', False)]
+        # Filter out disabled options and track their array indices
+        enabled_option_indices = [
+            i for i, opt in enumerate(options)
+            if not opt.get('disabled', False)
+        ]
 
-        if enabled_options:
-            option = random.choice(enabled_options)
-            choice_index = option.get('choice_index', 0)
+        if enabled_option_indices:
+            # Choose a random enabled option by its array index
+            array_index = random.choice(enabled_option_indices)
+            option = options[array_index]
+
+            # Use the option's choice_index if set, otherwise use array index
+            choice_index = option.get('choice_index')
+            if choice_index is None:
+                choice_index = array_index
+
             label = option.get('label', '?')
             self.print(f"  -> Event '{event_name}': choosing option {choice_index} ({label})")
             return self.send_action({
@@ -428,9 +438,19 @@ class FullGameClient:
     def handle_grid_select(self, state):
         """Handle grid/hand select screen"""
         game_state = state['game_state']
-        screen = game_state.get('screen', {})
 
+        # Check if choice is available
+        if not game_state.get('choice_available', False):
+            self.print("  -> Grid: no choice available, proceeding")
+            return self.send_action({"type": "proceed"})
+
+        screen = game_state.get('screen', {})
         cards = screen.get('cards', [])
+
+        if not cards:
+            self.print("  -> Grid: no cards available, proceeding")
+            return self.send_action({"type": "proceed"})
+
         selected_cards = screen.get('selected_cards', [])
         num_cards = screen.get('num_cards', 1)
         any_number = screen.get('any_number', False)
@@ -439,16 +459,26 @@ class FullGameClient:
         num_selected = len(selected_cards)
         num_remaining = num_cards - num_selected
 
+        # Log what kind of selection this is
+        context = []
+        if screen.get('for_upgrade'):
+            context.append('upgrade')
+        if screen.get('for_purge'):
+            context.append('remove')
+        if screen.get('for_transform'):
+            context.append('transform')
+        context_str = '/'.join(context) if context else 'select'
+
         # If we've selected enough, or randomly choose to skip
         if num_remaining <= 0 or (can_pick_zero and random.random() < 0.3):
-            self.print("  -> Confirming card selection")
+            self.print(f"  -> Grid ({context_str}): confirming selection")
             return self.send_action({"type": "proceed"})
 
         # Select random cards
         available_cards = [c for c in cards if c not in selected_cards]
 
         if not available_cards:
-            self.print("  -> No more cards available, confirming")
+            self.print(f"  -> Grid ({context_str}): no more cards available, confirming")
             return self.send_action({"type": "proceed"})
 
         # Select 1 to num_remaining cards
@@ -460,7 +490,7 @@ class FullGameClient:
         selected = random.sample(available_cards, num_to_select)
         card_names = [c['name'] for c in selected]
 
-        self.print(f"  -> Selecting {len(card_names)} cards: {', '.join(card_names)}")
+        self.print(f"  -> Grid ({context_str}): selecting {len(card_names)} cards: {', '.join(card_names)}")
         return self.send_action({
             "type": "card_select",
             "card_names": card_names

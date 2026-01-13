@@ -166,13 +166,9 @@ class Game:
                 'cards_discarded_this_turn': self.cards_discarded_this_turn
             }
 
-        # Add screen state (minimal for now)
+        # Add screen state
         if self.screen:
-            result['screen_state'] = {}  # TODO: Implement screen serialization
-
-        # Add choice list if available
-        if self.choice_available:
-            result['choice_list'] = self.choice_list
+            result['screen'] = self.screen.to_json()
 
         return result
 

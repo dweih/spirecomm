@@ -1,5 +1,13 @@
 # Slay the Spire Communication Mod - State Machine Specification
 
+This specification documents the game state structure and valid actions for both the native Python spirecomm API and the HTTP JSON API.
+
+**Notation**: State paths use dot notation (e.g., `game_state.screen.options`) for readability.
+- For native Python: Access as `game_state.screen.options`
+- For HTTP JSON API: Access as `game_state['screen']['options']`
+
+Both APIs expose identical data structures - the HTTP server serializes Python objects to JSON using each object's `to_json()` method.
+
 ## State Indicators
 
 ### Top-Level Flags
@@ -21,8 +29,9 @@
 - `choice_available`: boolean - A choice must be made on current screen
 
 ### Combat State Indicators
-- `combat_state.hand`: array - Cards in hand
-- `combat_state.monsters`: array - Enemy monsters
+When `in_combat` is true, a `combat_state` object is present:
+- `game_state.combat_state.hand`: array - Cards in hand
+- `game_state.combat_state.monsters`: array - Enemy monsters
 - Card properties: `is_playable`, `has_target`, `cost`
 - Monster properties: `is_gone`, `half_dead`, `current_hp`
 
@@ -50,10 +59,11 @@
 **State Data:**
 - `game_state.screen.event_name`: "Neow Event"
 - `game_state.screen.options`: array of EventOption objects
-  - Each option has: `choice_index`, `label`, `disabled`
+  - Each option has: `choice_index` (may be null), `label`, `disabled`
 
 **Valid Actions:**
 - `event_option`: Choose a Neow blessing
+  - Use `choice_index` from option if set, otherwise use array index
 
 **Transition:** → MAP
 
@@ -66,13 +76,11 @@
 
 **State Data:**
 - `game_state.screen.current_node`: Current map position (x, y, symbol)
-- `game_state.screen.next_nodes`: Array of available next nodes
+- `game_state.screen.next_nodes`: Array of available next nodes (Node objects)
 - `game_state.screen.boss_available`: boolean
-- `game_state.choice_list`: Array of available node indices (legacy)
 
 **Valid Actions:**
-- `choose`: Select node by index (from `choice_list`)
-- `choose_map_node`: Select node by x,y coordinates (not in action_factory)
+- `choose`: Select node by index into `next_nodes` array (0 to len-1)
 - `choose_map_boss`: Go to boss (when `boss_available` is true)
 
 **Transition:** → Room type based on node symbol (M=MonsterRoom, $=ShopRoom, T=TreasureRoom, ?=EventRoom, R=RestRoom, BOSS=MonsterRoomBoss)
@@ -182,12 +190,12 @@
 - `game_state.screen.event_id`: Event ID
 - `game_state.screen.body_text`: Event description
 - `game_state.screen.options`: Array of EventOption objects
-  - Each option has: `choice_index`, `label`, `text`, `disabled`
+  - Each option has: `choice_index` (may be null), `label`, `text`, `disabled`
 
 **Valid Actions:**
 - `event_option`: Choose an event option
   - Requires: `choice_index`
-- `choose`: Choose by index (legacy)
+  - **IMPORTANT**: If option's `choice_index` field is null, use the array index instead
 - `proceed`: Continue (when no choice needed)
 
 **Transition:** Variable (MAP, COMBAT, GRID, HAND_SELECT, or same screen with updated options)
@@ -205,7 +213,6 @@
 
 **Valid Actions:**
 - `open_chest`: Open the chest (when `chest_open` is false)
-- `choose`: With name="open" (legacy)
 - `proceed`: Leave (when `chest_open` is true or after opening)
 
 **Transition:** → COMBAT_REWARD (chest contents) or MAP
@@ -224,7 +231,6 @@
 **Valid Actions:**
 - `rest`: Choose a rest option
   - Requires: `option` (one of: "rest", "smith", "dig", "lift", "recall", "toke")
-- `choose`: By index (legacy)
 - `proceed`: Leave (when `has_rested` is true)
 
 **Transition:** → GRID (if SMITH chosen) or MAP
@@ -266,9 +272,8 @@
   - Requires: `potion_name`
 - `buy_purge`: Purchase card removal
   - Optional: `card_name` (if not specified, triggers GRID selection)
-- `choose`: With name="purge" (legacy)
 - `cancel`: Leave shop
-- `proceed`: Leave shop
+- `proceed`: Leave shop (equivalent to cancel)
 
 **Transition:** → GRID (if purge without card specified) or MAP
 
@@ -292,7 +297,7 @@
 **Valid Actions:**
 - `card_select`: Select cards
   - Requires: `card_names` (array of card names)
-- `choose`: Select by index (queued internally by CardSelectAction)
+  - Note: This action internally queues individual card selections
 - `proceed`: Confirm selection (when `confirm_up` is true or selection complete)
 
 **Transition:** → Previous screen (REST, SHOP_SCREEN, COMBAT, EVENT) or MAP
@@ -429,7 +434,7 @@ Always check `proceed_available` flag before sending `proceed` action. The flag 
 All room entries follow this pattern:
 
 1. **MAP screen** with `choice_available: true`
-2. Client sends node selection action (`choose`, `choose_map_node`, or `choose_map_boss`)
+2. Client sends node selection action (`choose` with index, or `choose_map_boss`)
 3. **Automatic transition** to room (no proceed needed)
 4. Room screen appears with `ready_for_command: true`
 
