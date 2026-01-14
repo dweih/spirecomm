@@ -17,18 +17,16 @@ Endpoints:
 For complete API documentation, see HTTP_API.md
 """
 
-import sys
 import json
-import threading
 import logging
+import sys
+import threading
 from datetime import datetime
-from http.server import BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
-from http.server import HTTPServer
 
-from spirecomm.communication.coordinator import Coordinator
 from spirecomm.communication.action_factory import action_from_json
-
+from spirecomm.communication.coordinator import Coordinator
 
 # Global logger
 logger = None

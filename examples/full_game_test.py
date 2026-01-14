@@ -22,12 +22,12 @@ Usage:
 Note: The game MUST be running and at the main menu before starting this test.
 """
 
+import argparse
+import random
 import sys
 import time
-import random
-import argparse
 
-from spirecomm.http_client import SpireHttpClient, ScreenType, RoomType, RoomPhase
+from spirecomm.http_client import SpireHttpClient
 
 
 class FullGameClient:
@@ -72,15 +72,16 @@ class FullGameClient:
         """Handle combat screen with random actions"""
         game_state = state['game_state']
 
-        if not game_state.in_combat:
+        combat_state = game_state.get('combat_state', None)
+        if not combat_state:
             return False
 
         # Check available commands
         available_commands = state.get('available_commands', [])
 
-        # Get hand and monsters from Game object (convert to dicts for compatibility)
-        hand = [card.to_json() for card in game_state.hand]
-        monsters = [m.to_json() for m in game_state.monsters]
+        # Get hand and monsters
+        hand = combat_state.get('hand', [])
+        monsters = combat_state.get('monsters', [])
 
         # 5% chance to end turn if available
         if 'end' in available_commands and random.random() < 0.05:
@@ -141,10 +142,10 @@ class FullGameClient:
     def handle_map(self, state):
         """Handle map screen"""
         game_state = state['game_state']
-        screen = game_state.screen
+        screen = game_state.get('screen', {})
 
-        next_nodes = [node.to_json() for node in screen.next_nodes] if hasattr(screen, 'next_nodes') else []
-        boss_available = screen.boss_available if hasattr(screen, 'boss_available') else False
+        next_nodes = screen.get('next_nodes', [])
+        boss_available = screen.get('boss_available', False)
 
         # Small chance to go to boss if available
         if boss_available and random.random() < 0.1:
@@ -169,11 +170,11 @@ class FullGameClient:
     def handle_card_reward(self, state):
         """Handle card reward screen"""
         game_state = state['game_state']
-        screen = game_state.screen
+        screen = game_state.get('screen', {})
 
-        cards = [card.to_json() for card in screen.cards] if hasattr(screen, 'cards') else []
-        can_bowl = screen.can_bowl if hasattr(screen, 'can_bowl') else False
-        can_skip = screen.can_skip if hasattr(screen, 'can_skip') else False
+        cards = screen.get('cards', [])
+        can_bowl = screen.get('can_bowl', False)
+        can_skip = screen.get('can_skip', False)
 
         # 20% chance to use bowl if available
         if can_bowl and random.random() < 0.2:
@@ -206,9 +207,9 @@ class FullGameClient:
     def handle_combat_reward(self, state):
         """Handle combat reward screen"""
         game_state = state['game_state']
-        screen = game_state.screen
+        screen = game_state.get('screen', {})
 
-        rewards = [reward.to_json() for reward in screen.rewards] if hasattr(screen, 'rewards') else []
+        rewards = screen.get('rewards', [])
 
         if not rewards:
             # No rewards left, proceed
@@ -232,9 +233,9 @@ class FullGameClient:
     def handle_boss_reward(self, state):
         """Handle boss reward screen"""
         game_state = state['game_state']
-        screen = game_state.screen
+        screen = game_state.get('screen', {})
 
-        relics = [relic.to_json() for relic in screen.relics] if hasattr(screen, 'relics') else []
+        relics = screen.get('relics', [])
 
         if relics:
             relic = random.choice(relics)
@@ -250,10 +251,10 @@ class FullGameClient:
     def handle_rest(self, state):
         """Handle rest site"""
         game_state = state['game_state']
-        screen = game_state.screen
+        screen = game_state.get('screen', {})
 
-        rest_options = [opt.name for opt in screen.rest_options] if hasattr(screen, 'rest_options') else []
-        has_rested = screen.has_rested if hasattr(screen, 'has_rested') else False
+        rest_options = screen.get('rest_options', [])
+        has_rested = screen.get('has_rested', False)
 
         if has_rested or not rest_options:
             # Already rested, proceed to leave
@@ -264,7 +265,7 @@ class FullGameClient:
             return success
 
         # Choose random rest option
-        option = random.choice(rest_options).lower()
+        option = random.choice(rest_options)
         self.print(f"  -> Choosing rest option: {option}")
         success = self.client.rest(option)
         if success:
@@ -297,14 +298,14 @@ class FullGameClient:
             return success
 
         game_state = state['game_state']
-        screen = game_state.screen
+        screen = game_state.get('screen', {})
 
-        cards = [card.to_json() for card in screen.cards] if hasattr(screen, 'cards') else []
-        relics = [relic.to_json() for relic in screen.relics] if hasattr(screen, 'relics') else []
-        potions = [potion.to_json() for potion in screen.potions] if hasattr(screen, 'potions') else []
-        purge_available = screen.purge_available if hasattr(screen, 'purge_available') else False
+        cards = screen.get('cards', [])
+        relics = screen.get('relics', [])
+        potions = screen.get('potions', [])
+        purge_available = screen.get('purge_available', False)
 
-        gold = game_state.gold
+        gold = game_state.get('gold', 0)
 
         # 50% chance to leave immediately
         if random.random() < 0.5:
@@ -327,7 +328,7 @@ class FullGameClient:
                 buyable_items.append(('potion', potion))
 
         if purge_available:
-            purge_cost = screen.purge_cost if hasattr(screen, 'purge_cost') else 75
+            purge_cost = screen.get('purge_cost', 75)
             if purge_cost <= gold:
                 buyable_items.append(('purge', {'price': purge_cost}))
 
@@ -366,11 +367,11 @@ class FullGameClient:
     def handle_event(self, state):
         """Handle event screen"""
         game_state = state['game_state']
-        screen = game_state.screen
+        screen = game_state.get('screen', {})
 
-        options = [opt.to_json() for opt in screen.options] if hasattr(screen, 'options') else []
-        event_name = screen.event_name if hasattr(screen, 'event_name') else 'Unknown Event'
-        room_type = game_state.room_type.name if game_state.room_type else 'Unknown'
+        options = screen.get('options', [])
+        event_name = screen.get('event_name', 'Unknown Event')
+        room_type = game_state.get('room_type', 'Unknown')
 
         # DIAGNOSTICS: Log full event state
         self.log("EVENT DIAGNOSTICS:")
@@ -414,9 +415,9 @@ class FullGameClient:
     def handle_chest(self, state):
         """Handle chest screen"""
         game_state = state['game_state']
-        screen = game_state.screen
+        screen = game_state.get('screen', {})
 
-        chest_open = screen.chest_open if hasattr(screen, 'chest_open') else False
+        chest_open = screen.get('chest_open', False)
 
         if chest_open:
             # Chest already open, proceed
@@ -438,15 +439,15 @@ class FullGameClient:
         game_state = state['game_state']
 
         # Check if choice is available
-        if not game_state.choice_available:
+        if not game_state.get('choice_available', False):
             self.print("  -> Grid: no choice available, proceeding")
             success = self.client.proceed()
             if success:
                 self.actions_taken += 1
             return success
 
-        screen = game_state.screen
-        cards = [card.to_json() for card in screen.cards] if hasattr(screen, 'cards') else []
+        screen = game_state.get('screen', {})
+        cards = screen.get('cards', [])
 
         if not cards:
             self.print("  -> Grid: no cards available, proceeding")
@@ -455,21 +456,21 @@ class FullGameClient:
                 self.actions_taken += 1
             return success
 
-        selected_cards = [card.to_json() for card in screen.selected_cards] if hasattr(screen, 'selected_cards') else []
-        num_cards = screen.num_cards if hasattr(screen, 'num_cards') else 1
-        any_number = screen.any_number if hasattr(screen, 'any_number') else False
-        can_pick_zero = screen.can_pick_zero if hasattr(screen, 'can_pick_zero') else False
+        selected_cards = screen.get('selected_cards', [])
+        num_cards = screen.get('num_cards', 1)
+        any_number = screen.get('any_number', False)
+        can_pick_zero = screen.get('can_pick_zero', False)
 
         num_selected = len(selected_cards)
         num_remaining = num_cards - num_selected
 
         # Log what kind of selection this is
         context = []
-        if hasattr(screen, 'for_upgrade') and screen.for_upgrade:
+        if screen.get('for_upgrade'):
             context.append('upgrade')
-        if hasattr(screen, 'for_purge') and screen.for_purge:
+        if screen.get('for_purge'):
             context.append('remove')
-        if hasattr(screen, 'for_transform') and screen.for_transform:
+        if screen.get('for_transform'):
             context.append('transform')
         context_str = '/'.join(context) if context else 'select'
 
@@ -527,28 +528,28 @@ class FullGameClient:
             return False
 
         game_state = state.get('game_state')
-        screen_type = game_state.screen_type if game_state else ScreenType.NONE
-        room_type = game_state.room_type if game_state else RoomType.UNKNOWN
-        phase = game_state.room_phase if game_state else RoomPhase.INCOMPLETE
-        floor = game_state.floor if game_state else 0
-        act = game_state.act if game_state else 0
-        current_hp = game_state.current_hp if game_state else 0
-        max_hp = game_state.max_hp if game_state else 0
-        gold = game_state.gold if game_state else 0
+        screen_type = game_state.get('screen_type', 'NONE') if game_state else 'NONE'
+        room_type = game_state.get('room_type', 'Unknown') if game_state else 'Unknown'
+        phase = game_state.get('room_phase', 'INCOMPLETE') if game_state else 'INCOMPLETE'
+        floor = game_state.get('floor', 0) if game_state else 0
+        act = game_state.get('act', 0) if game_state else 0
+        current_hp = game_state.get('current_hp', 0) if game_state else 0
+        max_hp = game_state.get('max_hp', 0) if game_state else 0
+        gold = game_state.get('gold', 0) if game_state else 0
 
         # Track floor progression
         if floor > self.floors_completed:
             self.floors_completed = floor
             self.print(f"\n{'='*60}")
             self.print(f"Floor {floor} | Act {act} | HP: {current_hp}/{max_hp} | Gold: {gold}")
-            self.print(f"Screen: {screen_type.name} | Room: {room_type.name} | Phase: {phase.name}")
+            self.print(f"Screen: {screen_type} | Room: {room_type} | Phase: {phase}")
             self.print(f"{'='*60}")
 
         # Handle based on screen type
-        if screen_type == ScreenType.GAME_OVER:
-            game_screen = game_state.screen
-            victory = game_screen.victory if hasattr(game_screen, 'victory') else False
-            score = game_screen.score if hasattr(game_screen, 'score') else 0
+        if screen_type == 'GAME_OVER':
+            game_screen = game_state.get('screen', {})
+            victory = game_screen.get('victory', False)
+            score = game_screen.get('score', 0)
             self.print(f"\n{'='*60}")
             self.print(f"GAME OVER - {'VICTORY!' if victory else 'Defeat'}")
             self.print(f"Score: {score}")
@@ -557,52 +558,52 @@ class FullGameClient:
             self.print(f"{'='*60}")
             return False  # End the test
 
-        elif screen_type == ScreenType.COMPLETE:
+        elif screen_type == 'COMPLETE':
             self.print("\nRun complete!")
             success = self.client.proceed()
             if success:
                 self.actions_taken += 1
             return success
 
-        elif screen_type == ScreenType.MAP:
+        elif screen_type == 'MAP':
             return self.handle_map(state)
 
-        elif screen_type == ScreenType.CARD_REWARD:
+        elif screen_type == 'CARD_REWARD':
             return self.handle_card_reward(state)
 
-        elif screen_type == ScreenType.COMBAT_REWARD:
+        elif screen_type == 'COMBAT_REWARD':
             return self.handle_combat_reward(state)
 
-        elif screen_type == ScreenType.BOSS_REWARD:
+        elif screen_type == 'BOSS_REWARD':
             return self.handle_boss_reward(state)
 
-        elif screen_type == ScreenType.REST:
+        elif screen_type == 'REST':
             return self.handle_rest(state)
 
-        elif screen_type == ScreenType.SHOP_ROOM:
+        elif screen_type == 'SHOP_ROOM':
             return self.handle_shop_room(state)
 
-        elif screen_type == ScreenType.SHOP_SCREEN:
+        elif screen_type == 'SHOP_SCREEN':
             return self.handle_shop(state)
 
-        elif screen_type == ScreenType.EVENT:
+        elif screen_type == 'EVENT':
             return self.handle_event(state)
 
-        elif screen_type == ScreenType.CHEST:
+        elif screen_type == 'CHEST':
             return self.handle_chest(state)
 
-        elif screen_type == ScreenType.GRID:
+        elif screen_type == 'GRID':
             return self.handle_grid_select(state)
 
-        elif screen_type == ScreenType.HAND_SELECT:
+        elif screen_type == 'HAND_SELECT':
             return self.handle_hand_select(state)
 
-        elif room_type in [RoomType.MONSTER, RoomType.MONSTER_BOSS, RoomType.MONSTER_ELITE] and phase == RoomPhase.COMBAT:
+        elif room_type in ['Monster', 'MonsterElite', 'Boss'] and phase == 'COMBAT':
             return self.handle_combat(state)
 
         else:
             # Unknown screen, log and try proceed
-            self.log(f"Unknown screen: {screen_type.name}, room: {room_type.name}, phase: {phase.name}")
+            self.log(f"Unknown screen: {screen_type}, room: {room_type}, phase: {phase}")
             if state.get('available_commands', []):
                 self.log(f"  Available commands: {state['available_commands']}")
             success = self.client.proceed()
@@ -648,9 +649,9 @@ class FullGameClient:
         if state and state.get('in_game'):
             # Already in a game, continue from current state
             game_state = state.get('game_state')
-            char = game_state.character.name if game_state and game_state.character else 'Unknown'
-            floor = game_state.floor if game_state else 0
-            screen = game_state.screen_type.name if game_state and game_state.screen_type else 'UNKNOWN'
+            char = game_state.get('character', 'Unknown')
+            floor = game_state.get('floor', 0)
+            screen = game_state.get('screen_type', 'Unknown')
             self.print(f"Game already in progress! Character: {char}, Floor: {floor}, Screen: {screen}")
             self.print("Continuing from current state...")
         else:
@@ -669,7 +670,7 @@ class FullGameClient:
                 state = self.get_state()
                 if state and state.get('in_game'):
                     game_state = state.get('game_state')
-                    char = game_state.character.name if game_state and game_state.character else 'Unknown'
+                    char = game_state.get('character', 'Unknown') if game_state else 'Unknown'
                     self.print(f"Game started! Playing as {char}")
                     break
                 time.sleep(1)
@@ -698,9 +699,9 @@ class FullGameClient:
             # Check for game over
             if state.get('in_game'):
                 game_state = state.get('game_state')
-                screen_type = game_state.screen_type if game_state else ScreenType.NONE
+                screen_type = game_state.get('screen_type') if game_state else None
 
-                if screen_type == ScreenType.GAME_OVER:
+                if screen_type == 'GAME_OVER':
                     # Handle final screen
                     self.handle_state(state)
                     break

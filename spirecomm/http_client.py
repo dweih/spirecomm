@@ -11,16 +11,15 @@ Usage:
 
     if state and state.get('in_game'):
         game = state['game_state']
-        if game.screen_type == ScreenType.MAP:
+        if game['screen_type'] == 'MAP':
             client.choose(choice_index=0)
 """
 
-import json
 import requests
 
-from spirecomm.spire.screen import ScreenType, RestOption, ChestType, RewardType
-from spirecomm.spire.character import PlayerClass, Intent
-from spirecomm.spire.game import RoomPhase, RoomType, Game
+from spirecomm.spire.character import Intent, PlayerClass
+from spirecomm.spire.game import RoomPhase, RoomType
+from spirecomm.spire.screen import ChestType, RestOption, RewardType, ScreenType
 
 __all__ = [
     'SpireHttpClient',
@@ -76,11 +75,10 @@ class SpireHttpClient:
 
         Returns:
             dict: Game state with keys:
-                - 'raw': Raw JSON from server
                 - 'in_game': bool
                 - 'ready_for_command': bool
                 - 'available_commands': list of str
-                - 'game_state': Game object (parsed) or raw dict
+                - 'game_state': dict (raw JSON from server)
             None: If no state available (204) or on error
         """
         try:
@@ -88,27 +86,9 @@ class SpireHttpClient:
             if resp.status_code == 204:
                 return None
             if resp.status_code == 200:
-                return self._parse_state_response(resp.json())
+                return resp.json()
         except Exception:
             return None
-
-    def _parse_state_response(self, data):
-        """Parse state response and add Game object"""
-        try:
-            # Parse game state using Game.from_json
-            game_state_json = data.get('game_state')
-            available_commands = data.get('available_commands', [])
-
-            if game_state_json:
-                # Parse to Game object
-                game_obj = Game.from_json(game_state_json, available_commands)
-                data['game_state'] = game_obj
-
-            # Keep raw data accessible
-            return data
-        except Exception:
-            # If parsing fails, return raw data
-            return data
 
     def send_action(self, action_dict):
         """
@@ -282,8 +262,8 @@ class SpireHttpClient:
             bool: True on success, False on failure
         """
         return self.send_action({
-            "type": "combat_reward",
-            "reward_index": reward_index
+            "type": "choose",
+            "choice_index": reward_index
         })
 
     def boss_reward(self, relic_name):
@@ -297,7 +277,7 @@ class SpireHttpClient:
             bool: True on success, False on failure
         """
         return self.send_action({
-            "type": "boss_reward",
+            "type": "choose",
             "relic_name": relic_name
         })
 
