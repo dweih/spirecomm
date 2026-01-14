@@ -14,6 +14,9 @@ setup(
     description='A package for interfacing with Slay the Spire through Communication Mod',
     long_description=long_description,
     long_description_content_type='text/markdown',
+    install_requires=[
+        'requests>=2.20.0',
+    ],
     classifiers=[
         'Programming Language :: Python :: 3',
         'License :: OSI Approved :: MIT License',

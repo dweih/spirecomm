@@ -15,6 +15,48 @@ class RoomPhase(Enum):
     INCOMPLETE = 4
 
 
+class RoomType(Enum):
+    MONSTER = 1
+    MONSTER_ELITE = 2
+    MONSTER_BOSS = 3
+    SHOP = 4
+    REST = 5
+    EVENT = 6
+    TREASURE = 7
+    NEOW = 8
+    UNKNOWN = 9
+
+
+# Room type string to enum mapping
+_ROOM_TYPE_MAP = {
+    "MonsterRoom": RoomType.MONSTER,
+    "MonsterRoomElite": RoomType.MONSTER_ELITE,
+    "MonsterRoomBoss": RoomType.MONSTER_BOSS,
+    "ShopRoom": RoomType.SHOP,
+    "RestRoom": RoomType.REST,
+    "EventRoom": RoomType.EVENT,
+    "TreasureRoom": RoomType.TREASURE,
+    "NeowRoom": RoomType.NEOW,
+}
+
+# Reverse mapping for serialization
+_ROOM_TYPE_REVERSE_MAP = {v: k for k, v in _ROOM_TYPE_MAP.items()}
+
+
+def room_type_from_string(room_type_str):
+    """Convert Java room type string to RoomType enum"""
+    if room_type_str is None:
+        return RoomType.UNKNOWN
+    return _ROOM_TYPE_MAP.get(room_type_str, RoomType.UNKNOWN)
+
+
+def room_type_to_string(room_type_enum):
+    """Convert RoomType enum back to Java room type string"""
+    if room_type_enum is None or room_type_enum == RoomType.UNKNOWN:
+        return "Unknown"
+    return _ROOM_TYPE_REVERSE_MAP.get(room_type_enum, "Unknown")
+
+
 class Game:
 
     def __init__(self):
@@ -91,7 +133,7 @@ class Game:
         game.screen_type = spirecomm.spire.screen.ScreenType[json_state.get("screen_type")]
         game.screen = spirecomm.spire.screen.screen_from_json(game.screen_type, json_state.get("screen_state"))
         game.room_phase = RoomPhase[json_state.get("room_phase")]
-        game.room_type = json_state.get("room_type")
+        game.room_type = room_type_from_string(json_state.get("room_type"))
         game.choice_available = "choice_list" in json_state
         if game.choice_available:
             game.choice_list = json_state.get("choice_list")
@@ -146,7 +188,7 @@ class Game:
             'map': self.map.to_json() if self.map else [],
             'screen_type': self.screen_type.name if self.screen_type else None,
             'room_phase': self.room_phase.name if self.room_phase else None,
-            'room_type': self.room_type,
+            'room_type': room_type_to_string(self.room_type),
             'is_screen_up': self.screen_up,
             'choice_available': self.choice_available,
         }
