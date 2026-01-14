@@ -44,10 +44,10 @@ First, make sure you have the HTTP server running. See the main README for setup
 
 ```bash
 # Linux/Mac
-./build/bin/simple_ai
+./build/bin/simple_combat_ai
 
 # Windows
-.\build\bin\Release\simple_ai.exe
+.\build\bin\Release\simple_combat_ai.exe
 ```
 
 ### 3. Minimal Example
