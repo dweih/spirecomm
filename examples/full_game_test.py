@@ -598,7 +598,7 @@ class FullGameClient:
         elif screen_type == 'HAND_SELECT':
             return self.handle_hand_select(state)
 
-        elif room_type in ['Monster', 'MonsterElite', 'Boss'] and phase == 'COMBAT':
+        elif room_type in ['MonsterRoom', 'MonsterEliteRoom', 'MonsterBossRoom'] and phase == 'COMBAT':
             return self.handle_combat(state)
 
         else:
