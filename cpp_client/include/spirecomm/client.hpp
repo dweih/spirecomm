@@ -158,6 +158,126 @@ public:
      */
     bool proceed();
 
+    /**
+     * Cancel current action or go back
+     * @return true if action sent successfully
+     */
+    bool cancel();
+
+    /**
+     * Make a generic choice by index or name
+     * @param choice_index Index of choice (0-indexed)
+     * @return true if action sent successfully
+     */
+    bool choose(int choice_index);
+
+    /**
+     * Make a generic choice by name
+     * @param name Name of choice
+     * @return true if action sent successfully
+     */
+    bool chooseByName(const std::string& name);
+
+    /**
+     * Choose a rest site option
+     * @param option Rest option ("rest", "smith", "dig", "lift", "recall", "toke")
+     * @return true if action sent successfully
+     */
+    bool rest(const std::string& option);
+
+    /**
+     * Choose a card reward or use Singing Bowl
+     * @param card_name Name of card to choose (empty to skip)
+     * @param bowl If true, use Singing Bowl
+     * @return true if action sent successfully
+     */
+    bool cardReward(const std::string& card_name = "", bool bowl = false);
+
+    /**
+     * Choose a combat reward
+     * @param reward_index Index into rewards array (0-indexed)
+     * @return true if action sent successfully
+     */
+    bool combatReward(int reward_index);
+
+    /**
+     * Choose a boss relic
+     * @param relic_name Name of relic to choose
+     * @return true if action sent successfully
+     */
+    bool bossReward(const std::string& relic_name);
+
+    /**
+     * Buy a card from the shop
+     * @param card_name Name of card to buy
+     * @return true if action sent successfully
+     */
+    bool buyCard(const std::string& card_name);
+
+    /**
+     * Buy a relic from the shop
+     * @param relic_name Name of relic to buy
+     * @return true if action sent successfully
+     */
+    bool buyRelic(const std::string& relic_name);
+
+    /**
+     * Buy a potion from the shop
+     * @param potion_name Name of potion to buy
+     * @return true if action sent successfully
+     */
+    bool buyPotion(const std::string& potion_name);
+
+    /**
+     * Buy card removal from the shop
+     * @param card_name Optional name of card to remove
+     * @return true if action sent successfully
+     */
+    bool buyPurge(const std::string& card_name = "");
+
+    /**
+     * Select cards from hand or grid
+     * @param card_names List of card names to select
+     * @return true if action sent successfully
+     */
+    bool cardSelect(const std::vector<std::string>& card_names);
+
+    /**
+     * Choose a map node by coordinates
+     * @param x Node X coordinate
+     * @param y Node Y coordinate
+     * @return true if action sent successfully
+     */
+    bool chooseMapNode(int x, int y);
+
+    /**
+     * Go to the boss node
+     * @return true if action sent successfully
+     */
+    bool chooseMapBoss();
+
+    /**
+     * Open a chest
+     * @return true if action sent successfully
+     */
+    bool openChest();
+
+    /**
+     * Choose an event option
+     * @param choice_index Index of event option
+     * @return true if action sent successfully
+     */
+    bool eventOption(int choice_index);
+
+    /**
+     * Start a new game
+     * @param character Character name ("IRONCLAD", "THE_SILENT", "DEFECT", "WATCHER")
+     * @param ascension Ascension level (default: 0)
+     * @param seed Optional seed string
+     * @return true if action sent successfully
+     */
+    bool startGame(const std::string& character, int ascension = 0, const std::string& seed = "");
+
 private:
     // PIMPL idiom to hide implementation details
     struct Impl;

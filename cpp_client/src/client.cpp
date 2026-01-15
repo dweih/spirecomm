@@ -261,4 +261,148 @@ bool SpireCommClient::proceed() {
     return pImpl->sendAction(action);
 }
 
+bool SpireCommClient::cancel() {
+    json action = {
+        {"type", "cancel"}
+    };
+    return pImpl->sendAction(action);
+}
+
+bool SpireCommClient::choose(int choice_index) {
+    json action = {
+        {"type", "choose"},
+        {"choice_index", choice_index}
+    };
+    return pImpl->sendAction(action);
+}
+
+bool SpireCommClient::chooseByName(const std::string& name) {
+    json action = {
+        {"type", "choose"},
+        {"name", name}
+    };
+    return pImpl->sendAction(action);
+}
+
+bool SpireCommClient::rest(const std::string& option) {
+    json action = {
+        {"type", "rest"},
+        {"option", option}
+    };
+    return pImpl->sendAction(action);
+}
+
+bool SpireCommClient::cardReward(const std::string& card_name, bool bowl) {
+    json action = {
+        {"type", "card_reward"}
+    };
+    if (bowl) {
+        action["bowl"] = true;
+    } else if (!card_name.empty()) {
+        action["card_name"] = card_name;
+    }
+    return pImpl->sendAction(action);
+}
+
+bool SpireCommClient::combatReward(int reward_index) {
+    json action = {
+        {"type", "choose"},
+        {"choice_index", reward_index}
+    };
+    return pImpl->sendAction(action);
+}
+
+bool SpireCommClient::bossReward(const std::string& relic_name) {
+    json action = {
+        {"type", "choose"},
+        {"relic_name", relic_name}
+    };
+    return pImpl->sendAction(action);
+}
+
+bool SpireCommClient::buyCard(const std::string& card_name) {
+    json action = {
+        {"type", "buy_card"},
+        {"card_name", card_name}
+    };
+    return pImpl->sendAction(action);
+}
+
+bool SpireCommClient::buyRelic(const std::string& relic_name) {
+    json action = {
+        {"type", "buy_relic"},
+        {"relic_name", relic_name}
+    };
+    return pImpl->sendAction(action);
+}
+
+bool SpireCommClient::buyPotion(const std::string& potion_name) {
+    json action = {
+        {"type", "buy_potion"},
+        {"potion_name", potion_name}
+    };
+    return pImpl->sendAction(action);
+}
+
+bool SpireCommClient::buyPurge(const std::string& card_name) {
+    json action = {
+        {"type", "buy_purge"}
+    };
+    if (!card_name.empty()) {
+        action["card_name"] = card_name;
+    }
+    return pImpl->sendAction(action);
+}
+
+bool SpireCommClient::cardSelect(const std::vector<std::string>& card_names) {
+    json action = {
+        {"type", "card_select"},
+        {"card_names", card_names}
+    };
+    return pImpl->sendAction(action);
+}
+
+bool SpireCommClient::chooseMapNode(int x, int y) {
+    json action = {
+        {"type", "choose_map_node"},
+        {"x", x},
+        {"y", y}
+    };
+    return pImpl->sendAction(action);
+}
+
+bool SpireCommClient::chooseMapBoss() {
+    json action = {
+        {"type", "choose_map_boss"}
+    };
+    return pImpl->sendAction(action);
+}
+
+bool SpireCommClient::openChest() {
+    json action = {
+        {"type", "open_chest"}
+    };
+    return pImpl->sendAction(action);
+}
+
+bool SpireCommClient::eventOption(int choice_index) {
+    json action = {
+        {"type", "event_option"},
+        {"choice_index", choice_index}
+    };
+    return pImpl->sendAction(action);
+}
+
+bool SpireCommClient::startGame(const std::string& character, int ascension, const std::string& seed) {
+    json action = {
+        {"type", "start_game"},
+        {"character", character},
+        {"ascension", ascension}
+    };
+    if (!seed.empty()) {
+        action["seed"] = seed;
+    }
+    return pImpl->sendAction(action);
+}
+
 } // namespace spirecomm

@@ -441,7 +441,7 @@ All room entries follow this pattern:
 
 Each room type has a specific exit flow:
 
-#### COMBAT (MonsterRoom, MonsterRoomBoss)
+#### COMBAT (MonsterRoom, MonsterEliteRoom, MonsterRoomBoss)
 ```
 COMBAT → (victory) → COMBAT_REWARD → proceed → MAP
                    → (defeat) → GAME_OVER
