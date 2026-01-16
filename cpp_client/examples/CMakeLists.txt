@@ -3,6 +3,11 @@ add_executable(simple_combat_ai simple_combat_ai.cpp)
 
 target_link_libraries(simple_combat_ai PRIVATE spirecomm)
 
+# Disable treating warnings as errors for examples
+if(MSVC)
+    target_compile_options(simple_combat_ai PRIVATE /WX-)
+endif()
+
 # Set output directory for easier access
 set_target_properties(simple_combat_ai PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
@@ -20,6 +25,11 @@ endif()
 add_executable(full_game_test full_game_test.cpp)
 
 target_link_libraries(full_game_test PRIVATE spirecomm)
+
+# Disable treating warnings as errors for examples
+if(MSVC)
+    target_compile_options(full_game_test PRIVATE /WX-)
+endif()
 
 # Set output directory for easier access
 set_target_properties(full_game_test PROPERTIES
