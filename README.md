@@ -22,11 +22,16 @@ To run the included simple Slay the Spire AI, configure Communication Mod to run
 
 ### Option 2: HTTP Server (REST API)
 
-To run the HTTP server for external control via REST API:
+To run the HTTP server for external control via REST API you need to have a file `%LOCALAPPDATA%\ModTheSpire\CommunicationMod\config.properties` containing
 
-```bash
-python -m spirecomm.http_server
 ```
+command=C\:\\Users\\dave_\\dev\\spiresim\\spirecomm\\run_http_server.bat --debug --log-file C\:\\SpireLogs\\server.log
+runAtGameStart=true
+```
+
+Launching the server has the side effect that a python process lives on after closing the game which prevents Steam from thinking the game has closed, so it has to be killed manually in order to restart STS.
+
+## Server Interface
 
 The HTTP server provides endpoints for querying game state and sending actions. See [HTTP_API.md](HTTP_API.md) for complete documentation.
 
