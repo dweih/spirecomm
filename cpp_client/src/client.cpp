@@ -277,6 +277,9 @@ bool SpireCommClient::choose(int choice_index) {
 }
 
 bool SpireCommClient::chooseByName(const std::string& name) {
+    // Note: Generic choose with name is NOT supported by CommunicationMod.
+    // This method exists for compatibility but callers should use specific
+    // action methods (buyCard, rest, etc.) instead.
     json action = {
         {"type", "choose"},
         {"name", name}
@@ -305,16 +308,13 @@ bool SpireCommClient::cardReward(const std::string& card_name, bool bowl) {
 }
 
 bool SpireCommClient::combatReward(int reward_index) {
-    json action = {
-        {"type", "choose"},
-        {"choice_index", reward_index}
-    };
-    return pImpl->sendAction(action);
+    // Combat rewards use choose with index
+    return choose(reward_index);
 }
 
 bool SpireCommClient::bossReward(const std::string& relic_name) {
     json action = {
-        {"type", "choose"},
+        {"type", "boss_reward"},
         {"relic_name", relic_name}
     };
     return pImpl->sendAction(action);

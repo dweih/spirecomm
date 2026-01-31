@@ -115,12 +115,32 @@ class Monster(Character):
 
     @classmethod
     def from_json(cls, json_object):
+        import logging
+        logger = logging.getLogger('spirecomm.character')
+
         name = json_object["name"]
         monster_id = json_object["id"]
         max_hp = json_object["max_hp"]
         current_hp = json_object["current_hp"]
         block = json_object["block"]
-        intent = Intent[json_object["intent"]]
+
+        # Parse intent - handle both string names and integer values/ordinals
+        intent_value = json_object["intent"]
+        logger.debug(f"Parsing intent for monster '{name}': {intent_value!r} (type: {type(intent_value).__name__})")
+
+        try:
+            # First try as enum name (string)
+            intent = Intent[intent_value]
+        except (KeyError, TypeError):
+            # If that fails, try as integer value
+            try:
+                intent = Intent(intent_value)
+                logger.debug(f"Parsed intent {intent_value} as enum value: {intent}")
+            except (ValueError, TypeError):
+                # Last resort: default to UNKNOWN with warning
+                logger.warning(f"Unknown intent value: {intent_value!r} (type: {type(intent_value).__name__}). Defaulting to UNKNOWN.")
+                intent = Intent.UNKNOWN
+
         half_dead = json_object["half_dead"]
         is_gone = json_object["is_gone"]
         move_id = json_object.get("move_id", -1)

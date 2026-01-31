@@ -51,7 +51,7 @@ def setup_logger(log_file=None, debug=False):
 
     # Console handler (for initial startup messages)
     console_handler = logging.StreamHandler(sys.stderr)
-    console_handler.setLevel(logging.INFO)
+    console_handler.setLevel(logging.DEBUG if debug else logging.INFO)
     console_handler.setFormatter(formatter)
 
     # Configure http_server logger
